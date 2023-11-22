@@ -8,6 +8,8 @@ Router::Router(int initial_capacity) {
     size = 0;
     mensajes_enviados = 0;
     capacidad = initial_capacity;
+    primer_elemento = 0;
+    ultimo_elemento = 0;
 }
 
 Router::~Router() {
@@ -20,7 +22,15 @@ Router::~Router() {
 
 bool Router::realocar_buffer() {
     Mensaje_texto** new_buffer = new Mensaje_texto * [capacidad * 2];
-    std::copy(buffer, buffer + capacidad, new_buffer); // Suggested by comments from Nick and Bojan
+    if (primer_elemento <= ultimo_elemento)
+        std::copy(buffer + primer_elemento, buffer + ultimo_elemento, new_buffer);
+    else {
+        std::copy(buffer + primer_elemento, buffer + capacidad - 1, new_buffer);
+        std::copy(buffer, buffer + ultimo_elemento, new_buffer + capacidad - primer_elemento);
+    }
+    primer_elemento = 0;
+    ultimo_elemento = size - 1;
+
     delete[] buffer;
     buffer = new_buffer;
     return true;
@@ -33,19 +43,41 @@ bool Router::hay_espacio() {
 bool Router::guardar_mensaje(Mensaje_texto* msg) {
     if (!hay_espacio()) realocar_buffer();
 
-    buffer[size++] = msg;
+    ultimo_elemento = (ultimo_elemento + 1) % capacidad;
+    buffer[ultimo_elemento] = msg;
+    size++;
     return true;
+}
+
+bool Router::hay_mensaje() {
+    return size > 0;
+}
+
+/*
+    Hay que asegurarse de revisar si hay mensaje primero
+*/
+Mensaje_texto* Router::obtener_sgte_mensaje() {
+    if (!hay_mensaje()) return nullptr;
+    return buffer[primer_elemento];
 }
 
 bool Router::enviar_mensaje(int receptor) {
     if (LoRa.beginPacket() == 0) return false;
+    if (!hay_mensaje()) return false;
 
-    Mensaje_texto mensaje = *buffer[0];
+    Mensaje_texto mensaje = *obtener_sgte_mensaje();
     unsigned char* mensaje_a_enviar = mensaje.parse_to_transmission();
     LoRa.beginPacket();
     LoRa.write(mensaje_a_enviar, mensaje.raw_message_size);
     LoRa.endPacket(true); // true = async / non-blocking mode
 
+    return true;
+}
+
+bool Router::eliminar_mensaje() {
+    delete buffer[ultimo_elemento];
+    ultimo_elemento = ultimo_elemento == 0 ? capacidad - 1 : ultimo_elemento - 1;
+    size--;
     return true;
 }
 
@@ -64,21 +96,3 @@ bool Router::recibir_mensaje() {
     delete msg;
     return true;
 }
-
-
-// wait until the radio is ready to send a packet
-    // while (LoRa.beginPacket() == 0) {
-    //     Serial.print("waiting for radio ... ");
-    //     delay(100);
-    // }
-
-    // Serial.print("Sending packet non-blocking: ");
-    // Serial.println(counter);
-
-    // // send in async / non-blocking mode
-    // LoRa.beginPacket();
-    // LoRa.print("hello ");
-    // LoRa.print(counter);
-    // LoRa.endPacket(true); // true = async / non-blocking mode
-
-    // counter++;

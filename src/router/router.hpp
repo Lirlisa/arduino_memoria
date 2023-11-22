@@ -10,6 +10,8 @@ private:
     unsigned int size;
     unsigned int mensajes_enviados;
     unsigned int capacidad;
+    unsigned int primer_elemento;
+    unsigned int ultimo_elemento;
 public:
     Router(int initial_capacity = 10);
     ~Router();
@@ -18,6 +20,10 @@ public:
     bool guardar_mensaje(Mensaje_texto* msg);
     bool realocar_buffer();
     bool hay_espacio();
+    bool hay_mensaje();
+    bool eliminar_mensaje();
+
+    Mensaje_texto* obtener_sgte_mensaje();
 };
 
 

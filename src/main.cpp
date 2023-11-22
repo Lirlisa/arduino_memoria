@@ -25,14 +25,11 @@ void setup() {
     }
     LoRa.enableCrc();
 
-    unsigned char mensajin[101];
-    mensajin[0] = 100;
-    strcpy((char*)mensajin + 1, "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789{}[]?.,;:-_+*~'\"|°¬!#$%&/()=ABCDEFG");
-    Mensaje_texto* msg = new Mensaje_texto(131071, 2, 3, 4, 5, 6, 0, 1, mensajin, 101);
+
 
 
     router = Router();
-    router.guardar_mensaje(msg);
+    // router.guardar_mensaje(msg);
     // unsigned char mensajin[101];
     // mensajin[0] = 100;
     // strcpy((char*)mensajin + 1, "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789{}[]?.,;:-_+*~'\"|°¬!#$%&/()=ABCDEFG");
@@ -48,10 +45,20 @@ void setup() {
 
 void loop() {
     if (millis() - lastSendTime > interval) {
+        Serial.println("Enter data:");
+        while (Serial.available() == 0) {}     //wait for data available
+        String teststr = Serial.readString();  //read until timeout
+        teststr.trim();
+
+        unsigned char mensajin[101];
+        mensajin[0] = 100;
+        teststr.toCharArray((char*)mensajin + 1, 100);
+        Mensaje_texto* msg = new Mensaje_texto(131071, 2, 3, 4, 5, 6, 0, 1, mensajin, 101);
+        router.guardar_mensaje(msg);
         router.enviar_mensaje(0);
 
         lastSendTime = millis();
-        interval = random(2000) + 1000;
+        interval = 2000;
     }
     router.recibir_mensaje();
 }
