@@ -2,23 +2,36 @@
 #define MENSAJE_HPP
 #include <cstdint>
 
+
 class Mensaje {
 protected:
     uint32_t ttr;
-    uint16_t emisor, receptor, creador, destinatario, nonce;
-    uint8_t tipo_payload, modo_transmision;
-    unsigned char payload[101];
+    uint16_t emisor, receptor, nonce;
+    uint8_t tipo_payload, payload_size;
+    unsigned char* payload;
+    const static int message_without_payload_size = 9;
+
 public:
-    const static int raw_message_size = 114;
     const static uint8_t TTR_MODE = 0;
     const static uint8_t MAXPROP_MODE = 1;
+    const static uint8_t PAYLOAD_TEXTO = 0;
+    const static uint8_t PAYLOAD_VECTOR = 1;
+    const static uint8_t PAYLOAD_ACK_MENSAJE = 2;
+    const static uint8_t PAYLOAD_ACK_COMUNICACION = 3;
+    const static uint8_t PAYLOAD_BEACON = 4;
+    const static int payload_max_size = 191;
+    const static int raw_message_max_size = 200;
+
+    unsigned transmission_size;
 
     Mensaje();
 
     Mensaje(uint32_t _ttr, uint16_t _emisor, uint16_t _receptor,
-        uint16_t _creador, uint16_t _destinatario, uint16_t _nonce,
-        uint8_t _tipo_payload, uint8_t _modo_transmision, unsigned char* _payload, int payload_size
+        uint16_t _nonce, uint8_t _tipo_payload,
+        unsigned char* _payload, int payload_size
     );
+
+    ~Mensaje();
 
     unsigned char* parse_to_transmission();
 
@@ -27,14 +40,14 @@ public:
 
     void setEmisor(uint16_t _emisor);
     void setReceptor(uint16_t _receptor);
+    void setNonce(uint16_t _nonce);
 
-    uint16_t getDestinatario();
+    uint16_t getEmisor();
+    uint16_t getReceptor();
     uint16_t getNonce();
+    uint8_t getTipoPayload();
 
-    /*
-    Crea un mensaje desde lo recibido por una transmisión, es deber de caller liberar la memoria
-    */
-    static Mensaje* parse_from_transmission(const unsigned char* data);
+    static Mensaje* parse_from_transmission(const unsigned char* data, uint8_t largo_data);
 };
 
 #endif

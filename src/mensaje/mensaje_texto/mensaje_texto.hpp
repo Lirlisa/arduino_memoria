@@ -3,18 +3,92 @@
 
 #include <mensaje/mensaje/mensaje.hpp>
 #include <cstdint>
+#include <cstring>
+#include <vector>
+
+struct Texto {
+    uint16_t nonce, creador, destinatario;
+    uint8_t saltos, largo_texto;
+    char* contenido;
+
+    ~Texto() {
+        delete[] contenido;
+        contenido = nullptr;
+    }
+
+    /*
+    @brief convierte los datos en un arreglo de bytes listos para transmitir. Es deber del caller liberar la memoria.
+    */
+    unsigned char* parse_to_transmission() {
+        unsigned char* data = new unsigned char[8 + largo_texto];
+        std::memcpy(data, &nonce, 2);
+        std::memcpy(data + 2, &creador, 2);
+        std::memcpy(data + 4, &destinatario, 2);
+        std::memcpy(data + 6, &saltos, 1);
+        std::memcpy(data + 7, &largo_texto, 1);
+        std::memcpy(data + 8, contenido, largo_texto);
+
+        return data;
+    }
+
+    /*
+    @brief Obtiene el hash del texto.
+    */
+    uint64_t hash() const {
+        uint64_t data = 0;
+        data |= ((uint64_t)nonce) << 48;
+        data |= ((uint64_t)creador) << 32;
+        data |= ((uint64_t)destinatario) << 16;
+        return data;
+    }
+
+    uint8_t transmission_size() {
+        return 8 + largo_texto;
+    }
+
+    bool operator==(const Texto& texto) const {
+        return nonce == texto.nonce && creador == texto.creador && destinatario == texto.destinatario;
+    }
+
+    bool operator!=(const Texto& texto) const {
+        return nonce != texto.nonce || creador != texto.creador || destinatario != texto.destinatario;
+    }
+};
+
+
+
+// struct TextoEqual {
+//     bool operator()(const Texto& texto1, const Texto& texto2) const {
+//         return texto1 == texto2;
+//     }
+// };
+
+// struct TextoHash {
+//     size_t operator()(const Texto& texto) const {
+//         return texto.hash();
+//     }
+// };
+
 
 class Mensaje_texto : public Mensaje {
 private:
-    uint8_t text_size;
-    char* contenido;
+    Texto* textos;
 
 public:
-    Mensaje_texto();
-    Mensaje_texto(uint32_t _ttr, uint16_t _emisor, uint16_t _receptor,
-        uint16_t _creador, uint16_t _destinatario, uint16_t _nonce,
-        uint8_t _tipo_payload, uint8_t _modo_transmision, unsigned char* _payload, int payload_size);
+    Mensaje_texto(
+        uint32_t _ttr, uint16_t _emisor, uint16_t _receptor,
+        uint16_t _nonce, unsigned char* _payload,
+        int payload_size
+    );
     Mensaje_texto(Mensaje const& origen);
+    ~Mensaje_texto();
+
+    uint8_t cantidad_textos;
+
+    static std::vector<Mensaje_texto> crear_mensajes(
+        uint32_t _ttr, uint16_t _emisor, uint16_t _receptor,
+        uint16_t _nonce, std::vector<Texto>& textos
+    );
 
     void print();
 };

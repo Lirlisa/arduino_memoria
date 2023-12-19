@@ -1,25 +1,33 @@
 #include <cstdint>
 #include <cstring>
 #include <Arduino.h>
-#include <string>
 #include <mensaje/mensaje/mensaje.hpp>
 
 
 Mensaje::Mensaje() {}
 
 Mensaje::Mensaje(uint32_t _ttr, uint16_t _emisor, uint16_t _receptor,
-    uint16_t _creador, uint16_t _destinatario, uint16_t _nonce,
-    uint8_t _tipo_payload, uint8_t _modo_transmision, unsigned char* _payload, int payload_size
+    uint16_t _nonce, uint8_t _tipo_payload,
+    unsigned char* _payload, int _payload_size
 ) {
     ttr = _ttr;
     emisor = _emisor;
     receptor = _receptor;
-    creador = _creador;
-    destinatario = _destinatario;
     nonce = _nonce;
     tipo_payload = _tipo_payload;
-    modo_transmision = _modo_transmision;
-    memcpy(payload, _payload, payload_size);
+    payload_size = _payload_size < Mensaje::payload_max_size ? _payload_size : Mensaje::payload_max_size;
+
+    if (payload_size > 0) {
+        payload = new unsigned char[payload_size];
+        std::memcpy(payload, _payload, payload_size);
+    }
+
+    std::memset(payload + payload_size, 0, Mensaje::payload_max_size - payload_size);
+    transmission_size = message_without_payload_size + payload_size;
+}
+
+Mensaje::~Mensaje() {
+    delete[] payload;
 }
 
 void Mensaje::print() {
@@ -27,84 +35,57 @@ void Mensaje::print() {
     Serial.println(emisor);
     Serial.print("Receptor: ");
     Serial.println(receptor);
-    Serial.print("Creador: ");
-    Serial.println(creador);
-    Serial.print("Destinatario: ");
-    Serial.println(destinatario);
     Serial.print("Nonce: ");
     Serial.println(nonce);
-    Serial.print("Modo Transmisión: ");
-    Serial.println(modo_transmision);
     Serial.print("TTR: ");
     Serial.println(ttr);
     Serial.print("Tipo payload: ");
     Serial.println(tipo_payload);
 }
 
-/*
-Crea mensaje para transmitir a partir del mensaje, es deber de caller liberar la memoria.
+/**
+@brief Crea mensaje para transmitir a partir del mensaje, es deber de caller liberar la memoria.
 */
 unsigned char* Mensaje::parse_to_transmission() {
-    unsigned char* msg = new unsigned char[raw_message_size];
+    unsigned char* msg = new unsigned char[payload_size];
 
-    memcpy(msg, &emisor, 2);
-    memcpy(msg + 2, &receptor, 2);
-    memcpy(msg + 4, &creador, 2);
-    memcpy(msg + 6, &destinatario, 2);
-    memcpy(msg + 8, &nonce, 2);
+    memcpy(msg, &emisor, 2); // 0, 1
+    memcpy(msg + 2, &receptor, 2); // 2, 3
+    memcpy(msg + 4, &nonce, 2); // 4, 5
 
-    msg[10] = modo_transmision << 7;
+    msg[6] = (uint8_t)(ttr & 0xff); // 8 bits
+    msg[7] = (uint8_t)((ttr >> 8) & 0xff); // 16 bits
+    msg[8] = (uint8_t)(((ttr >> 16) & 0x1f) << 3); // 21 bits
 
-    msg[10] |= (uint8_t)(ttr & 0x7F);
-    msg[11] = (uint8_t)((ttr >> 7) & 0xFF);
-    msg[12] = (uint8_t)(((ttr >> 15) & 0x3) << 6);
+    msg[8] |= tipo_payload & 0x7;
 
-    msg[12] |= tipo_payload << 3;
-
-    msg[12] |= (payload[0] & 0x7);
-
-    int inicio_msg = 13;
-    for (int i = 0; i < 100; i++) {
-        msg[inicio_msg + i] = payload[i] & 0xf8;
-        msg[inicio_msg + i] |= payload[i + 1] & 0x7;
-    }
-    msg[113] = payload[100] & 0xf8;
+    memcpy(msg + message_without_payload_size, payload, payload_size);
 
     return msg;
 }
 
 /*
-Crea un mensaje desde lo recibido por una transmisión, es deber de caller liberar la memoria.
+@brief Crea un mensaje desde lo recibido por una transmisión, es deber de caller liberar la memoria.
 */
-Mensaje* Mensaje::parse_from_transmission(const unsigned char* data) {
+Mensaje* Mensaje::parse_from_transmission(const unsigned char* data, uint8_t largo_data) {
     uint32_t _ttr;
-    int16_t _emisor, _receptor, _creador, _destinatario, _nonce;
-    int8_t _tipo_payload, _modo_transmision;
-    unsigned char _payload[101];
+    int16_t _emisor, _receptor, _nonce;
+    int8_t _tipo_payload;
+    unsigned char _payload[payload_max_size];
 
-    std::memcpy(&_emisor, data, 2);
-    std::memcpy(&_receptor, data + 2, 2);
-    std::memcpy(&_creador, data + 4, 2);
-    std::memcpy(&_destinatario, data + 6, 2);
-    std::memcpy(&_nonce, data + 8, 2);
+    memcpy(&_emisor, data, 2); // 0, 1
+    memcpy(&_receptor, data + 2, 2); // 2, 3
+    memcpy(&_nonce, data + 6, 2); // 4, 5
 
-    _modo_transmision = (data[10] >> 7);
+    _ttr = (data[6] & 0xff); // 8 bits
+    _ttr |= ((uint32_t)data[7] & 0xff) << 8; // 16 bits
+    _ttr |= ((uint32_t)data[8] & 0xf8) << 13; // 21 bits
 
-    _ttr = (data[10] & 0x7f);
-    _ttr |= ((uint32_t)data[11] & 0xff) << 7;
-    _ttr |= ((uint32_t)data[12] & 0xc0) << 9;
+    _tipo_payload = data[8] & 0x7;
 
-    _tipo_payload = (data[12] & 0x38) >> 3;
+    memcpy(_payload, data + message_without_payload_size, largo_data - message_without_payload_size);
 
-    _payload[0] = (data[12] & 0x7);
-    int inicio_msg = 13;
-    for (int i = 0; i < 100; i++) {
-        _payload[i] |= data[inicio_msg + i] & 0xf8;
-        _payload[i + 1] = data[inicio_msg + i] & 0x7;
-    }
-    _payload[100] = data[113] & 0xf8;
-
-    return new Mensaje(_ttr, _emisor, _receptor, _creador, _destinatario, _nonce, _tipo_payload, _modo_transmision, _payload, 101);
+    return new Mensaje(_ttr, _emisor, _receptor, _nonce, _tipo_payload, _payload, largo_data - message_without_payload_size);
 }
 
 void Mensaje::setEmisor(uint16_t _emisor) {
@@ -114,9 +95,21 @@ void Mensaje::setReceptor(uint16_t _receptor) {
     receptor = _receptor;
 }
 
-uint16_t Mensaje::getDestinatario() {
-    return destinatario;
+void Mensaje::setNonce(uint16_t _nonce) {
+    nonce = _nonce;
 }
+
 uint16_t Mensaje::getNonce() {
     return nonce;
+}
+
+uint16_t Mensaje::getEmisor() {
+    return emisor;
+}
+uint16_t Mensaje::getReceptor() {
+    return receptor;
+}
+
+uint8_t Mensaje::getTipoPayload() {
+    return tipo_payload;
 }
