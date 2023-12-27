@@ -173,6 +173,8 @@ bool Router::recibir_mensaje(unsigned periodos_espera) {
         }
         Mensaje* msg = Mensaje::parse_from_transmission(data, largo);
 
+        msg->print();
+
         if (msg->getReceptor() != id) {
             if (msg->getTipoPayload() == Mensaje::PAYLOAD_VECTOR) {
                 std::vector<par_costo_id> pares = Mensaje_vector(*msg).get_pares();
@@ -210,6 +212,7 @@ bool Router::emitir_beacon_signal() {
     LoRa.write(mensaje_a_enviar, beacon_signal.transmission_size);
     LoRa.endPacket(true); // true = async / non-blocking mode
 
+    beacon_signal.print();
     delete[] mensaje_a_enviar;
 
     return true;
