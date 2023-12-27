@@ -7,6 +7,8 @@ Buffer_textos::Buffer_textos(uint16_t _id) : mapa(_id) {
     id = _id;
 }
 
+Buffer_textos::Buffer_textos() {}
+
 bool Buffer_textos::_comparador_textos_saltos(const Texto& a, const Texto& b) {
     return a.saltos < b.saltos;
 }
@@ -32,6 +34,21 @@ void Buffer_textos::agregar_ack(uint64_t ack) {
         acks.insert(ack);
 
     auto se_remueve = [ack](Texto& texto) { return texto.hash() == ack; };
+
+    auto it = std::remove_if(arreglo_textos_threshold_saltos.begin(), arreglo_textos_threshold_saltos.end(), se_remueve);
+    arreglo_textos_threshold_saltos.erase(it, arreglo_textos_threshold_saltos.end());
+
+    it = std::remove_if(arreglo_textos_mas_de_threshold_saltos.begin(), arreglo_textos_mas_de_threshold_saltos.end(), se_remueve);
+    arreglo_textos_mas_de_threshold_saltos.erase(it, arreglo_textos_mas_de_threshold_saltos.end());
+}
+
+void Buffer_textos::agregar_ack(std::vector<uint64_t>& lista_acks) {
+    for (std::vector<uint64_t>::iterator ack = lista_acks.begin(); ack != lista_acks.end(); ack++) {
+        if (acks.find(*ack) != acks.end())
+            acks.insert(*ack);
+    }
+
+    auto se_remueve = [this](Texto& texto) { return this->acks.find(texto.hash()) != this->acks.end();};
 
     auto it = std::remove_if(arreglo_textos_threshold_saltos.begin(), arreglo_textos_threshold_saltos.end(), se_remueve);
     arreglo_textos_threshold_saltos.erase(it, arreglo_textos_threshold_saltos.end());
@@ -81,8 +98,10 @@ unsigned Buffer_textos::insertar_en_arr_mas_de_thresold(Texto texto, unsigned re
     return pos_insert;
 }
 
-void Buffer_textos::agregar_texto(Texto& texto) {
-
+void Buffer_textos::agregar_texto(Texto texto) {
+    texto.saltos += 1;
+    if (texto_en_acks(texto) || fue_visto(texto)) return;
+    agregar_a_vistos(texto);
     if (texto.saltos <= saltos_threshold)
         insertar_en_arr_bajo_thresold(texto);
     else
@@ -93,12 +112,27 @@ void Buffer_textos::agregar_texto(Texto* textos, unsigned cantidad_textos) {
     unsigned pos_bajo_threshold = 0, pos_sobre_threshold = 0;
     for (unsigned i = 0; i < cantidad_textos; i++) {
         Texto texto = textos[i];
-        if (!texto_en_acks(texto)) {
-            if (texto.saltos <= saltos_threshold)
-                pos_bajo_threshold = insertar_en_arr_bajo_thresold(texto, pos_bajo_threshold);
-            else
-                pos_sobre_threshold = insertar_en_arr_mas_de_thresold(texto, pos_sobre_threshold);
-        }
+        texto.saltos += 1;
+        if (texto_en_acks(texto) || fue_visto(texto)) continue;
+        agregar_a_vistos(texto);
+        if (texto.saltos <= saltos_threshold)
+            pos_bajo_threshold = insertar_en_arr_bajo_thresold(texto, pos_bajo_threshold);
+        else
+            pos_sobre_threshold = insertar_en_arr_mas_de_thresold(texto, pos_sobre_threshold);
+    }
+}
+
+void Buffer_textos::agregar_texto(std::vector<Texto>& textos) {
+    unsigned pos_bajo_threshold = 0, pos_sobre_threshold = 0;
+    for (std::vector<Texto>::iterator i = textos.begin(); i != textos.end(); i++) {
+        Texto texto = *i;
+        texto.saltos += 1;
+        if (texto_en_acks(texto) || fue_visto(texto)) continue;
+        agregar_a_vistos(texto);
+        if (texto.saltos <= saltos_threshold)
+            pos_bajo_threshold = insertar_en_arr_bajo_thresold(texto, pos_bajo_threshold);
+        else
+            pos_sobre_threshold = insertar_en_arr_mas_de_thresold(texto, pos_sobre_threshold);
     }
 }
 
@@ -162,4 +196,39 @@ unsigned char* Buffer_textos::obtener_vector_probabilidad() {
 
 std::vector<uint64_t> Buffer_textos::obtener_acks() {
     return std::vector<uint64_t>(acks.begin(), acks.end());
+}
+
+void Buffer_textos::agregar_a_vistos(uint64_t hash) {
+    if (ya_vistos.find(hash) != ya_vistos.end())
+        ya_vistos.insert(hash);
+}
+void Buffer_textos::agregar_a_vistos(Texto& texto) {
+    uint64_t hash = texto.hash();
+    agregar_a_vistos(hash);
+}
+void Buffer_textos::agregar_a_vistos(std::vector<Texto>& textos) {
+    uint64_t hash;
+    for (std::vector<Texto>::iterator texto = textos.begin(); texto != textos.end(); texto++) {
+        hash = texto->hash();
+        if (ya_vistos.find(hash) != ya_vistos.end())
+            ya_vistos.insert(hash);
+    }
+}
+
+bool Buffer_textos::fue_visto(uint64_t hash) {
+    return ya_vistos.find(hash) != ya_vistos.end();
+}
+bool Buffer_textos::fue_visto(Texto& texto) {
+    return ya_vistos.find(texto.hash()) != ya_vistos.end();
+}
+
+void Buffer_textos::agregar_probabilidades(uint16_t origen, std::vector<par_costo_id>& pares) {
+    mapa.actualizar_probabilidades(origen, pares);
+}
+
+void Buffer_textos::actualizar_propias_probabilidades(uint16_t nodo_visto) {
+    mapa.actualizar_propias_probabilidades(nodo_visto);
+}
+void Buffer_textos::actualizar_propias_probabilidades(uint16_t* nodos_vistos, uint16_t cant_nodos) {
+    mapa.actualizar_propias_probabilidades(nodos_vistos, cant_nodos);
 }

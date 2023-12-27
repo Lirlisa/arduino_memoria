@@ -24,6 +24,7 @@ public:
 
     unsigned transmission_size;
 
+
     Mensaje();
 
     Mensaje(uint32_t _ttr, uint16_t _emisor, uint16_t _receptor,
@@ -41,11 +42,13 @@ public:
     void setEmisor(uint16_t _emisor);
     void setReceptor(uint16_t _receptor);
     void setNonce(uint16_t _nonce);
+    void setTTR(uint32_t _ttr);
 
     uint16_t getEmisor();
     uint16_t getReceptor();
     uint16_t getNonce();
     uint8_t getTipoPayload();
+    uint32_t getTTR();
 
     static Mensaje* parse_from_transmission(const unsigned char* data, uint8_t largo_data);
 };

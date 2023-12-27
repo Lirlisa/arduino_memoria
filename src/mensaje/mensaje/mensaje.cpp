@@ -113,3 +113,11 @@ uint16_t Mensaje::getReceptor() {
 uint8_t Mensaje::getTipoPayload() {
     return tipo_payload;
 }
+
+void Mensaje::setTTR(uint32_t _ttr) {
+    ttr = _ttr;
+}
+
+uint32_t Mensaje::getTTR() {
+    return ttr;
+}

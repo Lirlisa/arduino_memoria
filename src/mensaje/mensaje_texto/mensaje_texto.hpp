@@ -7,8 +7,8 @@
 #include <vector>
 
 struct Texto {
-    uint16_t nonce, creador, destinatario;
-    uint8_t saltos, largo_texto;
+    uint16_t nonce = 0, creador = 0, destinatario = 0;
+    uint8_t saltos = 0, largo_texto = 0;
     char* contenido;
 
     ~Texto() {
@@ -55,21 +55,6 @@ struct Texto {
     }
 };
 
-
-
-// struct TextoEqual {
-//     bool operator()(const Texto& texto1, const Texto& texto2) const {
-//         return texto1 == texto2;
-//     }
-// };
-
-// struct TextoHash {
-//     size_t operator()(const Texto& texto) const {
-//         return texto.hash();
-//     }
-// };
-
-
 class Mensaje_texto : public Mensaje {
 private:
     Texto* textos;
@@ -91,6 +76,8 @@ public:
     );
 
     void print();
+
+    std::vector<Texto> obtener_textos();
 };
 
 #endif

@@ -26,6 +26,8 @@ public:
         uint16_t _emisor, uint16_t _receptor,
         uint16_t _nonce, std::vector<uint64_t>& acks
     );
+
+    std::vector<uint64_t> obtener_acks();
 };
 
 #endif

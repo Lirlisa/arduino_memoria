@@ -5,6 +5,7 @@
 #include <vector>
 #include <algorithm>
 #include <cmath>
+#include <cstring>
 
 /*
 Inicializa un mensaje_ack_mensaje. En caso de que la cantidad de hashes supere el máximo de bytes, sólo los primeros serán guardados.
@@ -17,13 +18,13 @@ Mensaje_ack_mensaje::Mensaje_ack_mensaje(
     _nonce, Mensaje::PAYLOAD_ACK_MENSAJE,
     (unsigned char*)nullptr, 0
 ) {
-    uint8_t cantidad_real_hashes = std::min(cantidad_hashes, (unsigned)std::floor((Mensaje::payload_max_size - 1) / 6));
+    uint8_t cantidad_real_hashes = std::min(cantidad_hashes, (unsigned)(Mensaje::payload_max_size - 1) / 6);
     payload_size = 1 + 6 * cantidad_real_hashes;
     payload = new unsigned char[payload_size];
     payload[0] = cantidad_real_hashes;
     for (uint8_t i = 0; i < cantidad_hashes; i++) {
         unsigned char* hash = lista_hashes[i].parse_to_transmission();
-        memcpy(payload + 1 + i * 6, hash, 6);
+        std::memcpy(payload + 1 + i * 6, hash, 6);
         delete[] hash;
     }
 }
@@ -55,7 +56,7 @@ std::vector<Mensaje_ack_mensaje> Mensaje_ack_mensaje::crear_mensajes(
     uint64_t aux_ack = 0;
     std::vector<Mensaje_ack_mensaje> mensajes;
     while (acks_restantes > 0) {
-        acks_por_enviar = (unsigned)std::min((unsigned)std::floor((payload_max_size - 1) / ack_size), acks_restantes);
+        acks_por_enviar = (unsigned)std::min((unsigned)(payload_max_size - 1) / ack_size, acks_restantes);
         _payload[0] = acks_por_enviar;
         for (unsigned i = 0; i < acks_por_enviar; i++) {
             aux_ack = acks[total_acks_enviados + i] >> 16;
@@ -71,4 +72,15 @@ std::vector<Mensaje_ack_mensaje> Mensaje_ack_mensaje::crear_mensajes(
         mensajes.push_back(Mensaje_ack_mensaje(_emisor, _receptor, _nonce, _payload, 1 + total_acks_enviados * ack_size));
     }
     return mensajes;
+}
+
+std::vector<uint64_t> Mensaje_ack_mensaje::obtener_acks() {
+    std::vector<uint64_t> acks;
+    uint8_t cantidad_acks = payload[0];
+    for (uint8_t i = 0; i < cantidad_acks; i++) {
+        uint64_t ack;
+        std::memcpy(&ack, payload + 1 + i * ack_size, ack_size);
+        acks.push_back(ack);
+    }
+    return acks;
 }

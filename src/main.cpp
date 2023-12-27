@@ -1,67 +1,58 @@
+#include <mensaje/mensaje/mensaje.hpp>
+#include <mensaje/mensaje_texto/mensaje_texto.hpp>
+#include <router/router.hpp>
 #include <Arduino.h>
 #include <SPI.h>
 #include <LoRa.h>
 #include <cstdint>
-#include <mensaje/mensaje/mensaje.hpp>
-#include <mensaje/mensaje_texto/mensaje_texto.hpp>
-#include <router/router.hpp>
 
 
-int counter = 0;
-long lastSendTime = 0;
-int interval = 2000;
 
-Router router(1, 1, 10);
+Router router;
+unsigned long ttr;
+bool hay_mensaje;
+unsigned long tiempo_ultima_transmision = 0;
+
 
 void setup() {
 
     Serial.begin(9600);
-    while (!Serial);
-    Serial.println("LoRa Sender non-blocking");
+    // while (!Serial);
+    // Serial.println("LoRa Sender non-blocking");
 
     if (!LoRa.begin(915E6)) {
         Serial.println("Starting LoRa failed!");
         while (1);
     }
+    LoRa.setSignalBandwidth(500E3);
     LoRa.enableCrc();
 
+    ttr = 1000 * 60 * 60;
+    router = Router(1, ttr, 10);
 
+    char* mensajin = new char[100];
+    strcpy(mensajin, "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789{}[]?.,;:-_+*~'\"|°¬!#$%&/()=ABCDEFG");
 
-
-    // router = Router();
-    // router.guardar_mensaje(msg);
-    unsigned char mensajin[101];
-    mensajin[0] = 100;
-    strcpy((char*)mensajin + 1, "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789{}[]?.,;:-_+*~'\"|°¬!#$%&/()=ABCDEFG");
-    Mensaje msg(131071, 1, 2, 3, Mensaje::PAYLOAD_ACK_MENSAJE, mensajin, 101); //, 2, 3, 4, 5, 6, 0, 1, 69, mensajin, 101
-    msg.print();
-    Serial.println();
-    unsigned char* codificado = msg.parse_to_transmission();
-    Mensaje* msg2 = Mensaje::parse_from_transmission(codificado, 101);
-    msg2->print();
-    Serial.println();
-    Mensaje_texto msg3(*msg2);
-    msg3.print();
-    delete[] codificado;
-    delete msg2;
+    Texto texto;
+    texto.creador = 1;
+    texto.destinatario = 2;
+    texto.contenido = mensajin;
+    texto.largo_texto = 100;
+    texto.nonce = 0;
+    router.agregar_texto(texto);
 }
 
 void loop() {
-    // if (millis() - lastSendTime > interval) {
-    //     Serial.println("Enter data:");
-    //     while (Serial.available() == 0) {}     //wait for data available
-    //     String teststr = Serial.readString();  //read until timeout
-    //     teststr.trim();
-
-    //     unsigned char mensajin[101];
-    //     mensajin[0] = 100;
-    //     teststr.toCharArray((char*)mensajin + 1, 100);
-    //     Mensaje_texto* msg = new Mensaje_texto(131071, 2, 3, 4, 5, 6, 0, 1, 69, mensajin, 101);
-    //     router.guardar_mensaje(msg);
-    //     router.enviar_mensaje(0);
-
-    //     lastSendTime = millis();
-    //     interval = 2000;
-    // }
-    // router.recibir_mensaje();
+    if (millis() - tiempo_ultima_transmision >= Router::tiempo_max_espera) {
+        tiempo_ultima_transmision = millis();
+        if (!router.emitir_beacon_signal()) return;
+        if (!router.recibir_mensaje()) return;
+        uint8_t tipo_payload = router.mensaje_pendiente.getTipoPayload();
+        if (tipo_payload == Mensaje::PAYLOAD_BEACON) {
+            router.iniciar_comunicacion(router.mensaje_pendiente.getEmisor());
+        }
+        else if (tipo_payload == Mensaje::PAYLOAD_ACK_COMUNICACION) {
+            router.recibir_comunicacion(router.mensaje_pendiente.getEmisor());
+        }
+    }
 }

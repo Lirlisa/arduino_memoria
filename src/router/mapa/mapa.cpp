@@ -1,4 +1,5 @@
 #include <router/mapa/mapa.hpp>
+#include <mensaje/mensaje_vector/mensaje_vector.hpp>
 #include <cstdint>
 #include <unordered_map>
 #include <limits>
@@ -12,6 +13,8 @@ Mapa::Mapa(uint16_t _id) {
     id = _id;
     grafo[id] = std::unordered_map<uint16_t, float>();
 }
+
+Mapa::Mapa() {}
 
 void Mapa::dijkstra() {
     std::priority_queue<par_costo_id, std::vector<par_costo_id>, std::greater<par_costo_id>> pq;
@@ -44,9 +47,9 @@ void Mapa::dijkstra() {
     }
 }
 
-void Mapa::actualizar_probabilidades(uint16_t origen, arco_dirigido* pesos, uint16_t cant_pesos) {
-    for (uint16_t i = 0; i < cant_pesos; i++) {
-        grafo[origen][pesos[i].destino] = pesos[i].peso;
+void Mapa::actualizar_probabilidades(uint16_t origen, std::vector<par_costo_id>& pares) {
+    for (std::vector<par_costo_id>::iterator par = pares.begin(); par != pares.end(); par++) {
+        grafo[origen][par->second] = par->first;
     }
 }
 

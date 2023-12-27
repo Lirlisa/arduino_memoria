@@ -139,3 +139,8 @@ std::vector<Mensaje_texto> Mensaje_texto::crear_mensajes(
 
     return mensajes_texto;
 }
+
+std::vector<Texto> Mensaje_texto::obtener_textos() {
+    std::vector<Texto> _textos(textos, textos + cantidad_textos);
+    return _textos;
+}
