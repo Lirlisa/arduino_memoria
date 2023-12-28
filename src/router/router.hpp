@@ -63,6 +63,9 @@ public:
     void agregar_texto(Texto& textos);
 
     uint16_t get_nonce_beacon_signal();
+
+    void set_ttr(uint32_t _ttr);
+    void update_ttr(uint32_t segundos_transcurridos);
 };
 
 

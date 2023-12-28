@@ -12,7 +12,8 @@ struct Texto {
     char* contenido;
 
     ~Texto() {
-        delete[] contenido;
+        if (largo_texto > 0)
+            delete[] contenido;
         contenido = nullptr;
     }
 

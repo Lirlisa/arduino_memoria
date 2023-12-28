@@ -20,6 +20,7 @@ private:
 public:
     Mapa(uint16_t _id);
     Mapa();
+    ~Mapa();
     void dijkstra();
     void actualizar_probabilidades(uint16_t origen, std::vector<par_costo_id>& pares);
     void actualizar_propias_probabilidades(uint16_t nodo_visto);

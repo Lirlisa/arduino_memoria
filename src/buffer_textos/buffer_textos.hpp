@@ -31,6 +31,7 @@ private:
 public:
     Buffer_textos(uint16_t _id);
     Buffer_textos();
+    ~Buffer_textos();
 
     unsigned size();
     bool hay_mensajes_bajo_threshold();

@@ -63,11 +63,8 @@ Mensaje_texto::Mensaje_texto(Mensaje const& origen) : Mensaje(origen) {
 }
 
 Mensaje_texto::~Mensaje_texto() {
-    for (uint8_t i = 0; i < cantidad_textos; i++) {
-        delete[] textos[i].contenido;
-        textos[i].contenido = nullptr;
-    }
-    delete[] textos;
+    if (cantidad_textos > 0)
+        delete[] textos;
     textos = nullptr;
 }
 

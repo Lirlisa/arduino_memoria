@@ -2,12 +2,17 @@
 #include <algorithm>
 #include <vector>
 #include <unordered_set>
+#include <Arduino.h>
 
 Buffer_textos::Buffer_textos(uint16_t _id) : mapa(_id) {
     id = _id;
 }
 
 Buffer_textos::Buffer_textos() {}
+
+Buffer_textos::~Buffer_textos() {
+    Serial.println("Eliminado Buffer");
+}
 
 bool Buffer_textos::_comparador_textos_saltos(const Texto& a, const Texto& b) {
     return a.saltos < b.saltos;

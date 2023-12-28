@@ -7,6 +7,7 @@
 #include <unordered_set>
 #include <vector>
 #include <queue>
+#include <Arduino.h>
 
 
 Mapa::Mapa(uint16_t _id) {
@@ -15,6 +16,10 @@ Mapa::Mapa(uint16_t _id) {
 }
 
 Mapa::Mapa() {}
+
+Mapa::~Mapa() {
+    Serial.println("Eliminado Mapa");
+}
 
 void Mapa::dijkstra() {
     std::priority_queue<par_costo_id, std::vector<par_costo_id>, std::greater<par_costo_id>> pq;

@@ -24,11 +24,18 @@ Router::Router(uint16_t _id, uint32_t _ttr, unsigned int initial_capacity) : buf
     );
 }
 
-Router::Router() {}
+Router::Router() {
+    capacidad_mis_mensajes = 0;
+}
 
 Router::~Router() {
-    delete[] mis_mensajes;
+    Serial.println("Eliminando Router");
+    Serial.println(capacidad_mis_mensajes);
+
+    if (capacidad_mis_mensajes > 0)
+        delete[] mis_mensajes;
     mis_mensajes = nullptr;
+    Serial.println("Eliminado Router");
 }
 
 bool Router::agregar_a_mis_mensajes(Texto& texto) {
@@ -520,4 +527,11 @@ void Router::agregar_texto(std::vector<Texto>& textos) {
 
 void Router::agregar_texto(Texto& texto) {
     buffer.agregar_texto(texto);
+}
+
+void Router::set_ttr(uint32_t _ttr) {
+    ttr = _ttr;
+}
+void Router::update_ttr(uint32_t segundos_transcurridos) {
+    ttr = ttr > segundos_transcurridos ? ttr - segundos_transcurridos : 0;
 }

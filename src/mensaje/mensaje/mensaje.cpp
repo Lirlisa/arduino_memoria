@@ -20,14 +20,17 @@ Mensaje::Mensaje(uint32_t _ttr, uint16_t _emisor, uint16_t _receptor,
     if (payload_size > 0) {
         payload = new unsigned char[payload_size];
         std::memcpy(payload, _payload, payload_size);
+        std::memset(payload + payload_size, 0, Mensaje::payload_max_size - payload_size);
     }
 
-    std::memset(payload + payload_size, 0, Mensaje::payload_max_size - payload_size);
     transmission_size = message_without_payload_size + payload_size;
 }
 
 Mensaje::~Mensaje() {
-    delete[] payload;
+    Serial.println("Eliminando Mensaje");
+    if (payload_size > 0)
+        delete[] payload;
+    Serial.println("Eliminado Mensaje");
 }
 
 void Mensaje::print() {
