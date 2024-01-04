@@ -19,6 +19,7 @@ public:
         uint16_t _emisor, uint16_t _receptor, uint16_t _nonce,
         unsigned char* _payload, int _payload_size
     );
+    Mensaje_ack_mensaje(const Mensaje_ack_mensaje& origen);
     Mensaje_ack_mensaje(Mensaje const& origen);
 
 

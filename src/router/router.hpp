@@ -3,6 +3,7 @@
 
 #include <mensaje/mensaje/mensaje.hpp>
 #include <mensaje/mensaje_texto/mensaje_texto.hpp>
+#include <texto/texto.hpp>
 #include <mensaje/ack.hpp>
 #include <buffer_textos/buffer_textos.hpp>
 #include <cstdint>
@@ -20,11 +21,12 @@ private:
 
     uint16_t id;
     unsigned int mensajes_enviados;
-    uint16_t nonce_actual = 0;
+    uint16_t nonce_actual;
 
     unsigned int capacidad_mis_mensajes;
     unsigned int size_mis_mensajes;
     uint32_t ttr;
+    std::unordered_set<uint64_t> ya_vistos;
 
     bool esperar_ack(uint16_t id_nodo, uint16_t nonce, unsigned periodos_espera = 3);
     uint16_t get_update_nonce();
@@ -35,6 +37,9 @@ private:
     bool agregar_a_acks(Texto& texto);
     bool se_puede_transmitir_LoRa(unsigned periodos_espera = 3);
     bool hay_paquete_LoRa(unsigned periodos_espera = 3);
+    uint64_t obtener_hash_mensaje(uint16_t nonce, uint16_t emisor, uint16_t receptor);
+    bool mensaje_ya_visto(Mensaje& mensaje);
+    void agregar_a_ya_visto(Mensaje& mensaje);
 
 public:
     Router(uint16_t _id, uint32_t _ttr, unsigned int initial_capacity = 10);
@@ -66,6 +71,8 @@ public:
 
     void set_ttr(uint32_t _ttr);
     void update_ttr(uint32_t segundos_transcurridos);
+    void print_buffer();
+    unsigned get_cantidad_ya_vistos();
 };
 
 

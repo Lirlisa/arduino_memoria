@@ -1,36 +1,55 @@
+#include <mensaje/mensaje/mensaje.hpp>
 #include <cstdint>
 #include <cstring>
 #include <Arduino.h>
-#include <mensaje/mensaje/mensaje.hpp>
+#include <algorithm>
 
 
-Mensaje::Mensaje() {}
+Mensaje::Mensaje() {
+    ttr = 0;
+    emisor = receptor = nonce = 0;
+    tipo_payload = payload_size = 0;
+    payload = nullptr;
+    transmission_size = message_without_payload_size;
+}
 
 Mensaje::Mensaje(uint32_t _ttr, uint16_t _emisor, uint16_t _receptor,
     uint16_t _nonce, uint8_t _tipo_payload,
-    unsigned char* _payload, int _payload_size
+    unsigned char* _payload, unsigned _payload_size
 ) {
     ttr = _ttr;
     emisor = _emisor;
     receptor = _receptor;
     nonce = _nonce;
     tipo_payload = _tipo_payload;
-    payload_size = _payload_size < Mensaje::payload_max_size ? _payload_size : Mensaje::payload_max_size;
+    payload_size = std::min(_payload_size, payload_max_size);
 
     if (payload_size > 0) {
         payload = new unsigned char[payload_size];
         std::memcpy(payload, _payload, payload_size);
-        std::memset(payload + payload_size, 0, Mensaje::payload_max_size - payload_size);
     }
-
     transmission_size = message_without_payload_size + payload_size;
+}
+
+Mensaje::Mensaje(const Mensaje& original) {
+    ttr = original.ttr;
+    emisor = original.emisor;
+    receptor = original.receptor;
+    nonce = original.nonce;
+    tipo_payload = original.tipo_payload;
+    payload_size = std::min((unsigned)original.payload_size, payload_max_size);
+    transmission_size = std::min((unsigned)original.transmission_size, message_without_payload_size + payload_max_size);
+
+    if (payload_size > 0) {
+        payload = new unsigned char[payload_size];
+        std::memcpy(payload, original.payload, payload_size);
+    }
 }
 
 Mensaje::~Mensaje() {
     Serial.println("Eliminando Mensaje");
     if (payload_size > 0)
         delete[] payload;
-    Serial.println("Eliminado Mensaje");
 }
 
 void Mensaje::print() {
@@ -47,24 +66,20 @@ void Mensaje::print() {
 }
 
 /**
-@brief Crea mensaje para transmitir a partir del mensaje, es deber de caller liberar la memoria.
+@brief Crea mensaje para transmitir a partir del mensaje. El destino debe tener al menos 'transmission_size' bytes disponibles.
 */
-unsigned char* Mensaje::parse_to_transmission() {
-    unsigned char* msg = new unsigned char[payload_size];
+void Mensaje::parse_to_transmission(unsigned char* destino) {
+    std::memcpy(destino, &emisor, 2); // 0, 1
+    std::memcpy(destino + 2, &receptor, 2); // 2, 3
+    std::memcpy(destino + 4, &nonce, 2); // 4, 5
 
-    memcpy(msg, &emisor, 2); // 0, 1
-    memcpy(msg + 2, &receptor, 2); // 2, 3
-    memcpy(msg + 4, &nonce, 2); // 4, 5
+    destino[6] = (uint8_t)(ttr & 0xff); // 8 bits
+    destino[7] = (uint8_t)((ttr >> 8) & 0xff); // 16 bits
+    destino[8] = (uint8_t)(((ttr >> 16) & 0x1f) << 3); // 21 bits
 
-    msg[6] = (uint8_t)(ttr & 0xff); // 8 bits
-    msg[7] = (uint8_t)((ttr >> 8) & 0xff); // 16 bits
-    msg[8] = (uint8_t)(((ttr >> 16) & 0x1f) << 3); // 21 bits
+    destino[8] |= tipo_payload & 0x7;
 
-    msg[8] |= tipo_payload & 0x7;
-
-    memcpy(msg + message_without_payload_size, payload, payload_size);
-
-    return msg;
+    std::memcpy(destino + message_without_payload_size, payload, payload_size);
 }
 
 /*
@@ -76,9 +91,9 @@ Mensaje* Mensaje::parse_from_transmission(const unsigned char* data, uint8_t lar
     int8_t _tipo_payload;
     unsigned char _payload[payload_max_size];
 
-    memcpy(&_emisor, data, 2); // 0, 1
-    memcpy(&_receptor, data + 2, 2); // 2, 3
-    memcpy(&_nonce, data + 6, 2); // 4, 5
+    std::memcpy(&_emisor, data, 2); // 0, 1
+    std::memcpy(&_receptor, data + 2, 2); // 2, 3
+    std::memcpy(&_nonce, data + 4, 2); // 4, 5
 
     _ttr = (data[6] & 0xff); // 8 bits
     _ttr |= ((uint32_t)data[7] & 0xff) << 8; // 16 bits
@@ -86,7 +101,7 @@ Mensaje* Mensaje::parse_from_transmission(const unsigned char* data, uint8_t lar
 
     _tipo_payload = data[8] & 0x7;
 
-    memcpy(_payload, data + message_without_payload_size, largo_data - message_without_payload_size);
+    std::memcpy(_payload, data + message_without_payload_size, largo_data - message_without_payload_size);
 
     return new Mensaje(_ttr, _emisor, _receptor, _nonce, _tipo_payload, _payload, largo_data - message_without_payload_size);
 }
@@ -123,4 +138,8 @@ void Mensaje::setTTR(uint32_t _ttr) {
 
 uint32_t Mensaje::getTTR() {
     return ttr;
+}
+
+unsigned Mensaje::get_transmission_size() {
+    return transmission_size;
 }

@@ -2,19 +2,17 @@
 #define ACK_HPP
 
 #include <cstdint>
-#include <string.h>
+#include <cstring>
 
 struct ACK {
     uint16_t nonce, creador, destinatario;
     /*
-    @brief convierte los datos en un array de bytes, es deber del caller liberar la memoria.
+    @brief convierte los datos en un array de bytes, el destino debe tener al menos 6 bytes disponibles.
     */
-    unsigned char* parse_to_transmission() {
-        unsigned char* data = new unsigned char[6];
-        memcpy(data, &nonce, 2);
-        memcpy(data + 2, &creador, 2);
-        memcpy(data + 4, &destinatario, 2);
-        return data;
+    void parse_to_transmission(unsigned char* destino) {
+        std::memcpy(destino, &nonce, 2);
+        std::memcpy(destino + 2, &creador, 2);
+        std::memcpy(destino + 4, &destinatario, 2);
     }
 };
 

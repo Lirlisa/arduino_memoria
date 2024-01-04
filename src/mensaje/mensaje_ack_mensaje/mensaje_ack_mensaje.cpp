@@ -18,14 +18,14 @@ Mensaje_ack_mensaje::Mensaje_ack_mensaje(
     _nonce, Mensaje::PAYLOAD_ACK_MENSAJE,
     (unsigned char*)nullptr, 0
 ) {
-    uint8_t cantidad_real_hashes = std::min(cantidad_hashes, (unsigned)(Mensaje::payload_max_size - 1) / 6);
+    uint8_t cantidad_real_hashes = std::min(cantidad_hashes, (unsigned)(Mensaje::payload_max_size - 1) / ack_size);
     payload_size = 1 + 6 * cantidad_real_hashes;
     payload = new unsigned char[payload_size];
     payload[0] = cantidad_real_hashes;
     for (uint8_t i = 0; i < cantidad_hashes; i++) {
-        unsigned char* hash = lista_hashes[i].parse_to_transmission();
+        unsigned char hash[6];
+        lista_hashes[i].parse_to_transmission(hash);
         std::memcpy(payload + 1 + i * 6, hash, 6);
-        delete[] hash;
     }
 }
 
@@ -35,6 +35,10 @@ Mensaje_ack_mensaje::Mensaje_ack_mensaje(
 ) : Mensaje(0, _emisor, _receptor, _nonce, Mensaje::PAYLOAD_ACK_MENSAJE, _payload, _payload_size) {
 
 }
+
+Mensaje_ack_mensaje::Mensaje_ack_mensaje(const Mensaje_ack_mensaje& origen) : Mensaje_ack_mensaje(
+    origen.emisor, origen.receptor, origen.nonce, origen.payload, origen.payload_size
+) { }
 
 /*
 @brief Hay que asegurarse de que el payload tenga el formato correcto

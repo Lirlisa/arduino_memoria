@@ -1,22 +1,27 @@
 #include <mensaje/mensaje/mensaje.hpp>
 #include <mensaje/mensaje_ack_comunicacion/mensaje_ack_comunicacion.hpp>
 #include <cstdint>
-#include <string.h>
+#include <cstring>
 
 
 Mensaje_ack_comunicacion::Mensaje_ack_comunicacion(
-    uint16_t _emisor, uint16_t _receptor, uint16_t _nonce, uint16_t nonce_msj_original
+    uint16_t _emisor, uint16_t _receptor, uint16_t _nonce, uint16_t _nonce_msj_original
 ) : Mensaje(
     0, _emisor, _receptor, _nonce, Mensaje::PAYLOAD_ACK_COMUNICACION, (unsigned char*)nullptr, 0
 ) {
-    memcpy(payload, &nonce_msj_original, 2);
-    memcpy(payload + 2, &receptor, 2); //emisor mensaje original
-    memcpy(payload + 4, &emisor, 2); //receptor mensaje original
+    nonce_mensaje_original = _nonce_msj_original;
+    std::memcpy(payload, &nonce_mensaje_original, 2);
+    std::memcpy(payload + 2, &receptor, 2); //emisor mensaje original
+    std::memcpy(payload + 4, &emisor, 2); //receptor mensaje original
     payload_size = 6;
 }
 
+Mensaje_ack_comunicacion::Mensaje_ack_comunicacion(const Mensaje_ack_comunicacion& original) : Mensaje_ack_comunicacion(
+    original.emisor, original.receptor, original.nonce, original.nonce_mensaje_original
+) { }
+
 /*
-@brief Crea un mensaje ack comunicación a partir de un mnensaje base. Es importante asegurarse que el payload sea el correcto
+@brief Crea un mensaje ack comunicación a partir de un mensaje base. Es importante asegurarse que el payload sea el correcto
 */
 Mensaje_ack_comunicacion::Mensaje_ack_comunicacion(Mensaje const& origen) : Mensaje(origen) {
     ttr = 0;

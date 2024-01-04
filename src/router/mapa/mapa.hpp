@@ -27,6 +27,7 @@ public:
     void actualizar_propias_probabilidades(uint16_t* nodos_vistos, uint16_t cant_nodos);
     void add_node(uint16_t nodo, float peso, std::vector<par_costo_id> vecinos);
 
-    unsigned char* obtener_vector_probabilidad();
+    void obtener_vector_probabilidad(unsigned char* destino);
     float costo(uint16_t destino);
+    unsigned get_size_vector_probabilidad();
 };

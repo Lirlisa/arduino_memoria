@@ -18,7 +18,7 @@ Mapa::Mapa(uint16_t _id) {
 Mapa::Mapa() {}
 
 Mapa::~Mapa() {
-    Serial.println("Eliminado Mapa");
+    Serial.println("Eliminando Mapa");
 }
 
 void Mapa::dijkstra() {
@@ -88,19 +88,17 @@ void Mapa::actualizar_propias_probabilidades(uint16_t* nodos_vistos, uint16_t ca
 }
 
 /*
-Entrega el vector de probabilidades del nodo, es deber del caller liberar la memoria
+Entrega el vector de probabilidades del nodo. El destino debe tener al menos 'get_size_vector_probabilidad()' bytres disponibles.
 */
-unsigned char* Mapa::obtener_vector_probabilidad() {
-    unsigned char* data = new unsigned char[2 + grafo[id].size() * 6];
+void Mapa::obtener_vector_probabilidad(unsigned char* destino) {
     uint16_t _size = grafo[id].size();
-    memcpy(data, &_size, 2);
+    memcpy(destino, &_size, 2);
     uint16_t i = 0;
     for (auto& v : grafo[id]) {
-        memcpy(data + 2 + i * 6, &(v.first), 2);
-        memcpy(data + 2 + i * 6 + 2, &(v.second), 4);
+        memcpy(destino + 2 + i * 6, &(v.first), 2);
+        memcpy(destino + 2 + i * 6 + 2, &(v.second), 4);
         i++;
     }
-    return data;
 }
 
 float Mapa::costo(uint16_t destino) {
@@ -121,4 +119,8 @@ void Mapa::add_node(uint16_t nodo, float peso, std::vector<par_costo_id> vecinos
     }
 
     dijkstra();
+}
+
+unsigned Mapa::get_size_vector_probabilidad() {
+    return 2 + grafo[id].size() * 6;
 }

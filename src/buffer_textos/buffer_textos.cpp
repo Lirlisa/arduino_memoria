@@ -11,7 +11,7 @@ Buffer_textos::Buffer_textos(uint16_t _id) : mapa(_id) {
 Buffer_textos::Buffer_textos() {}
 
 Buffer_textos::~Buffer_textos() {
-    Serial.println("Eliminado Buffer");
+    Serial.println("Eliminando Buffer");
 }
 
 bool Buffer_textos::_comparador_textos_saltos(const Texto& a, const Texto& b) {
@@ -31,7 +31,7 @@ void Buffer_textos::eliminar_texto() {
 
 bool Buffer_textos::texto_en_acks(Texto& texto) {
     uint64_t hash = texto.hash();
-    return acks.find(hash) == acks.end();
+    return acks.find(hash) != acks.end();
 }
 
 void Buffer_textos::agregar_ack(uint64_t ack) {
@@ -87,57 +87,58 @@ void Buffer_textos::agregar_ack(std::vector<Texto>& textos) {
     arreglo_textos_mas_de_threshold_saltos.erase(it, arreglo_textos_mas_de_threshold_saltos.end());
 }
 
-unsigned Buffer_textos::insertar_en_arr_bajo_thresold(Texto texto, unsigned revisar_desde) {
-    unsigned pos_insert = revisar_desde;
-    while (texto.saltos >= arreglo_textos_threshold_saltos.at(pos_insert).saltos) pos_insert++;
-    arreglo_textos_threshold_saltos.insert(arreglo_textos_threshold_saltos.begin() + pos_insert, texto);
-
-    return pos_insert;
+unsigned Buffer_textos::insertar_en_arr_bajo_thresold(Texto& texto) {
+    unsigned i = 0;
+    while (i < arreglo_textos_threshold_saltos.size()) {
+        if (texto.saltos < arreglo_textos_threshold_saltos.at(i).saltos) break;
+        i++;
+    }
+    arreglo_textos_threshold_saltos.insert(arreglo_textos_threshold_saltos.begin() + i, texto);
+    return i;
 }
-unsigned Buffer_textos::insertar_en_arr_mas_de_thresold(Texto texto, unsigned revisar_desde) {
-    unsigned pos_insert = revisar_desde;
+
+unsigned Buffer_textos::insertar_en_arr_mas_de_thresold(Texto& texto) {
     float prob = obtener_probabilidad_entrega(texto);
-    while (prob >= obtener_probabilidad_entrega(arreglo_textos_mas_de_threshold_saltos.at(pos_insert))) pos_insert++;
-    arreglo_textos_mas_de_threshold_saltos.insert(arreglo_textos_mas_de_threshold_saltos.begin() + pos_insert, texto);
-
-    return pos_insert;
+    unsigned i = 0;
+    while (i < arreglo_textos_mas_de_threshold_saltos.size()) {
+        if (prob >= obtener_probabilidad_entrega(arreglo_textos_mas_de_threshold_saltos.at(i))) break;
+        i++;
+    };
+    arreglo_textos_mas_de_threshold_saltos.insert(arreglo_textos_mas_de_threshold_saltos.begin() + i, texto);
+    return i;
 }
 
-void Buffer_textos::agregar_texto(Texto texto) {
-    texto.saltos += 1;
-    if (texto_en_acks(texto) || fue_visto(texto)) return;
-    agregar_a_vistos(texto);
-    if (texto.saltos <= saltos_threshold)
-        insertar_en_arr_bajo_thresold(texto);
+void Buffer_textos::agregar_texto(Texto& texto) {
+    Texto nuevo_texto = Texto(texto);
+    nuevo_texto.saltos += 1;
+    if (texto_en_acks(nuevo_texto)) return;
+    if (nuevo_texto.saltos <= saltos_threshold)
+        insertar_en_arr_bajo_thresold(nuevo_texto);
     else
-        insertar_en_arr_mas_de_thresold(texto);
+        insertar_en_arr_mas_de_thresold(nuevo_texto);
 }
 
 void Buffer_textos::agregar_texto(Texto* textos, unsigned cantidad_textos) {
-    unsigned pos_bajo_threshold = 0, pos_sobre_threshold = 0;
     for (unsigned i = 0; i < cantidad_textos; i++) {
         Texto texto = textos[i];
         texto.saltos += 1;
-        if (texto_en_acks(texto) || fue_visto(texto)) continue;
-        agregar_a_vistos(texto);
+        if (texto_en_acks(texto)) continue;
         if (texto.saltos <= saltos_threshold)
-            pos_bajo_threshold = insertar_en_arr_bajo_thresold(texto, pos_bajo_threshold);
+            insertar_en_arr_bajo_thresold(texto);
         else
-            pos_sobre_threshold = insertar_en_arr_mas_de_thresold(texto, pos_sobre_threshold);
+            insertar_en_arr_mas_de_thresold(texto);
     }
 }
 
 void Buffer_textos::agregar_texto(std::vector<Texto>& textos) {
-    unsigned pos_bajo_threshold = 0, pos_sobre_threshold = 0;
     for (std::vector<Texto>::iterator i = textos.begin(); i != textos.end(); i++) {
         Texto texto = *i;
         texto.saltos += 1;
-        if (texto_en_acks(texto) || fue_visto(texto)) continue;
-        agregar_a_vistos(texto);
+        if (texto_en_acks(texto)) continue;
         if (texto.saltos <= saltos_threshold)
-            pos_bajo_threshold = insertar_en_arr_bajo_thresold(texto, pos_bajo_threshold);
+            insertar_en_arr_bajo_thresold(texto);
         else
-            pos_sobre_threshold = insertar_en_arr_mas_de_thresold(texto, pos_sobre_threshold);
+            insertar_en_arr_mas_de_thresold(texto);
     }
 }
 
@@ -195,36 +196,12 @@ std::vector<Texto> Buffer_textos::obtener_textos_sobre_threshold() {
     return arreglo_textos_mas_de_threshold_saltos;
 }
 
-unsigned char* Buffer_textos::obtener_vector_probabilidad() {
-    return mapa.obtener_vector_probabilidad();
+void Buffer_textos::obtener_vector_probabilidad(unsigned char* destino) {
+    mapa.obtener_vector_probabilidad(destino);
 }
 
 std::vector<uint64_t> Buffer_textos::obtener_acks() {
     return std::vector<uint64_t>(acks.begin(), acks.end());
-}
-
-void Buffer_textos::agregar_a_vistos(uint64_t hash) {
-    if (ya_vistos.find(hash) != ya_vistos.end())
-        ya_vistos.insert(hash);
-}
-void Buffer_textos::agregar_a_vistos(Texto& texto) {
-    uint64_t hash = texto.hash();
-    agregar_a_vistos(hash);
-}
-void Buffer_textos::agregar_a_vistos(std::vector<Texto>& textos) {
-    uint64_t hash;
-    for (std::vector<Texto>::iterator texto = textos.begin(); texto != textos.end(); texto++) {
-        hash = texto->hash();
-        if (ya_vistos.find(hash) != ya_vistos.end())
-            ya_vistos.insert(hash);
-    }
-}
-
-bool Buffer_textos::fue_visto(uint64_t hash) {
-    return ya_vistos.find(hash) != ya_vistos.end();
-}
-bool Buffer_textos::fue_visto(Texto& texto) {
-    return ya_vistos.find(texto.hash()) != ya_vistos.end();
 }
 
 void Buffer_textos::agregar_probabilidades(uint16_t origen, std::vector<par_costo_id>& pares) {
@@ -236,4 +213,21 @@ void Buffer_textos::actualizar_propias_probabilidades(uint16_t nodo_visto) {
 }
 void Buffer_textos::actualizar_propias_probabilidades(uint16_t* nodos_vistos, uint16_t cant_nodos) {
     mapa.actualizar_propias_probabilidades(nodos_vistos, cant_nodos);
+}
+
+void Buffer_textos::print() {
+    Serial.println("Mensajes en buffer:");
+    std::vector<Texto>::iterator texto;
+    for (texto = arreglo_textos_threshold_saltos.begin(); texto != arreglo_textos_threshold_saltos.end(); texto++) {
+        texto->print();
+        Serial.println("--------");
+    }
+    for (texto = arreglo_textos_mas_de_threshold_saltos.begin(); texto != arreglo_textos_mas_de_threshold_saltos.end(); texto++) {
+        texto->print();
+        Serial.println("--------");
+    }
+}
+
+unsigned Buffer_textos::get_size_vector_probabilidad() {
+    return mapa.get_size_vector_probabilidad();
 }

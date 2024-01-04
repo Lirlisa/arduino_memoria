@@ -1,14 +1,13 @@
-#include <mensaje/mensaje/mensaje.hpp>
-#include <mensaje/mensaje_texto/mensaje_texto.hpp>
 #include <router/router.hpp>
+#include <memoria/memoria.hpp>
 #include <Arduino.h>
 #include <SPI.h>
 #include <LoRa.h>
 #include <cstdint>
+#include <texto/texto.hpp>
 
 
-
-unsigned long ttr = 1000 * 60 * 60;
+unsigned long ttr = 60 * 60;
 Router router;
 bool hay_mensaje;
 unsigned long tiempo_ultima_transmision = 0;
@@ -25,26 +24,13 @@ void setup() {
         Serial.println("Starting LoRa failed!");
         while (1);
     }
-    Serial.println("01");
     LoRa.setSignalBandwidth(500E3);
     LoRa.enableCrc();
-    Serial.println("02");
-    char* mensajin = new char[101];
-    Serial.println("03");
-    char str1[101] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789{}[]?.,;:-_+*~'\"|°¬!#$%&/()=ABCDEFG\0";
-    Serial.println("04");
-    strcpy(mensajin, str1);
-    Serial.println("05");
     router = Router(1, ttr, 10);
-    Serial.println("06");
-    Texto texto;
-    texto.creador = 1;
-    texto.destinatario = 2;
-    texto.contenido = mensajin;
-    texto.largo_texto = 100;
-    texto.nonce = 0;
+    char textin[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789{}[]?.,;:-_+*~'\"|°!#$%&/()=ABCDEFG";
+    Texto texto(0, 1, 1, 1, 98, textin);
     router.agregar_texto(texto);
-    Serial.println("07");
+    // texto.print();
 }
 
 void loop() {
@@ -55,16 +41,23 @@ void loop() {
     }
     //agregar modo sleep o idle e intentar recibir mensajes todo el rato
     if (millis() - tiempo_ultima_transmision >= Router::tiempo_max_espera) {
-        Serial.println("Sending beacon");
         tiempo_ultima_transmision = millis();
-        if (!router.emitir_beacon_signal()) return;
-        if (!router.recibir_mensaje()) return;
-        uint8_t tipo_payload = router.mensaje_pendiente.getTipoPayload();
-        if (tipo_payload == Mensaje::PAYLOAD_BEACON) {
-            router.iniciar_comunicacion(router.mensaje_pendiente.getEmisor());
-        }
-        else if (tipo_payload == Mensaje::PAYLOAD_ACK_COMUNICACION) {
-            router.recibir_comunicacion(router.mensaje_pendiente.getEmisor());
-        }
+        Serial.println("Sending beacon");
+        router.enviar_mensaje_texto_ttr(1);
+        Serial.print("Memoria Disponible: ");
+        Serial.println(freeMemory());
+        // if (!router.emitir_beacon_signal()) return;
+        // if (!router.recibir_mensaje()) return;
+        // uint8_t tipo_payload = router.mensaje_pendiente.getTipoPayload();
+        // if (tipo_payload == Mensaje::PAYLOAD_BEACON) {
+        //     router.iniciar_comunicacion(router.mensaje_pendiente.getEmisor());
+        // }
+        // else if (tipo_payload == Mensaje::PAYLOAD_ACK_COMUNICACION) {
+        //     router.recibir_comunicacion(router.mensaje_pendiente.getEmisor());
+        // }
     }
+
+    // if (millis() - tiempo_ultima_transmision >= Router::tiempo_max_espera) {
+    //     if (!router.recibir_mensaje()) return;
+    // }
 }
