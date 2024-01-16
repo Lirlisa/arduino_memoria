@@ -4,28 +4,43 @@ Texto::Texto() { }
 
 Texto::Texto(
     uint16_t _nonce, uint16_t _creador, uint16_t _destinatario,
-    uint8_t _saltos, unsigned _largo_texto,
+    uint8_t _saltos, int _largo_texto,
     char* _contenido
 ) {
+    if (_largo_texto <= 0) return;
+
+    largo_texto = _largo_texto;
     nonce = _nonce;
     creador = _creador;
     destinatario = _destinatario;
     saltos = _saltos;
-    largo_texto = _largo_texto;
-    if (largo_texto <= 0) return;
 
     contenido = new char[largo_texto];
     std::memcpy(contenido, _contenido, largo_texto);
 
     //compresión
     char temp_comprimido[2 * largo_texto];
-    largo_texto_comprimido = unishox2_compress_simple(contenido, largo_texto, temp_comprimido);
-    if (largo_texto_comprimido < max_largo_contenido_comprimido) {
+    int _largo_texto_comprimido = unishox2_compress_simple(contenido, largo_texto, temp_comprimido);
+
+    if (_largo_texto_comprimido > (int)max_largo_contenido_comprimido) {
+        char textito[largo_texto + 1];
+        std::memcpy(textito, contenido, largo_texto);
+        textito[largo_texto] = '\0';
+        Serial.println("intentando comprimir: ");
+        Serial.println(textito);
+        Serial.println("Texto comprimido es demasiado largo");
+        Serial.print("_largo_texto_comprimido = ");
+        Serial.println(_largo_texto_comprimido);
+        Serial.print("(int)max_largo_contenido_comprimido = ");
+        Serial.println((int)max_largo_contenido_comprimido);
+        Serial.print("max_largo_contenido_comprimido = ");
+        Serial.println(max_largo_contenido_comprimido);
         delete[] contenido;
         largo_texto_comprimido = largo_texto = 0;
         return;
     }
     valido = true;
+    largo_texto_comprimido = _largo_texto_comprimido;
     contenido_comprimido = new char[largo_texto_comprimido];
     std::memcpy(contenido_comprimido, temp_comprimido, largo_texto_comprimido);
 }
@@ -34,6 +49,7 @@ Texto::Texto(const Texto& other) {
     Serial.println("Copiando Texto");
     if (!other.valido) return;
 
+    valido = true;
     nonce = other.nonce;
     creador = other.creador;
     destinatario = other.destinatario;
@@ -48,7 +64,6 @@ Texto::Texto(const Texto& other) {
 }
 
 Texto::~Texto() {
-    Serial.println("Eliminando Texto");
     valido = false;
     if (largo_texto > 0)
         delete[] contenido;
@@ -88,10 +103,12 @@ uint8_t Texto::transmission_size() {
     return size_variables_transmission + largo_texto_comprimido;
 }
 
-void Texto::print() {
+void Texto::print() const {
     char _contenido[largo_texto + 1];
     std::memcpy(_contenido, contenido, largo_texto);
     _contenido[largo_texto] = '\0';
+    Serial.print("\tValido: ");
+    Serial.println(valido ? "True" : "False");
     Serial.print("\tCreador: ");
     Serial.println(creador);
     Serial.print("\tDestinatario: ");

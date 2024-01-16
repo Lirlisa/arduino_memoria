@@ -12,13 +12,12 @@
 
 Mapa::Mapa(uint16_t _id) {
     id = _id;
-    grafo[id] = std::unordered_map<uint16_t, float>();
+    grafo[id] = {};
 }
 
 Mapa::Mapa() {}
 
 Mapa::~Mapa() {
-    Serial.println("Eliminando Mapa");
 }
 
 void Mapa::dijkstra() {
@@ -109,11 +108,11 @@ float Mapa::costo(uint16_t destino) {
 
 void Mapa::add_node(uint16_t nodo, float peso, std::vector<par_costo_id> vecinos) {
     if (grafo.find(nodo) == grafo.end())
-        grafo[nodo] = std::unordered_map<uint16_t, float>();
+        grafo[nodo] = {};
 
     for (std::vector<par_costo_id>::iterator vecino = vecinos.begin(); vecino != vecinos.end(); vecino++) {
         if (grafo.find(vecino->second) == grafo.end())
-            grafo[vecino->second] = std::unordered_map<uint16_t, float>();
+            grafo[vecino->second] = {};
 
         grafo[nodo][vecino->second] = vecino->first;
     }

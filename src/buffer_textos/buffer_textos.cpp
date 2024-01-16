@@ -11,7 +11,6 @@ Buffer_textos::Buffer_textos(uint16_t _id) : mapa(_id) {
 Buffer_textos::Buffer_textos() {}
 
 Buffer_textos::~Buffer_textos() {
-    Serial.println("Eliminando Buffer");
 }
 
 bool Buffer_textos::_comparador_textos_saltos(const Texto& a, const Texto& b) {
@@ -109,7 +108,7 @@ unsigned Buffer_textos::insertar_en_arr_mas_de_thresold(Texto& texto) {
 }
 
 void Buffer_textos::agregar_texto(Texto& texto) {
-    Texto nuevo_texto = Texto(texto);
+    Texto nuevo_texto(texto);
     nuevo_texto.saltos += 1;
     if (texto_en_acks(nuevo_texto)) return;
     if (nuevo_texto.saltos <= saltos_threshold)
@@ -230,4 +229,8 @@ void Buffer_textos::print() {
 
 unsigned Buffer_textos::get_size_vector_probabilidad() {
     return mapa.get_size_vector_probabilidad();
+}
+
+void Buffer_textos::eliminar_textos_sobre_threshold() {
+    arreglo_textos_mas_de_threshold_saltos.clear();
 }

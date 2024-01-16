@@ -11,6 +11,7 @@ protected:
     unsigned char* payload;
     const static unsigned message_without_payload_size = 9;
     unsigned transmission_size;
+    const static uint16_t BROADCAST_CHANNEL_ID = 0xffff;
 public:
     const static uint8_t TTR_MODE = 0;
     const static uint8_t MAXPROP_MODE = 1;
@@ -32,7 +33,7 @@ public:
 
     void parse_to_transmission(unsigned char* destino);
 
-    void print();
+    void print() const;
 
 
     void setEmisor(uint16_t _emisor);

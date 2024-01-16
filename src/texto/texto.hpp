@@ -21,7 +21,7 @@ struct Texto {
     Texto();
     Texto(
         uint16_t _nonce, uint16_t _creador, uint16_t _destinatario,
-        uint8_t _saltos, unsigned _largo_texto,
+        uint8_t _saltos, int _largo_texto,
         char* _contenido
     );
     Texto(const Texto& other);
@@ -31,7 +31,7 @@ struct Texto {
     uint64_t hash() const;
     uint8_t transmission_size();
 
-    void print();
+    void print() const;
 
     bool operator==(const Texto& texto) const;
     bool operator!=(const Texto& texto) const;

@@ -38,7 +38,7 @@ Mensaje::Mensaje(const Mensaje& original) {
     nonce = original.nonce;
     tipo_payload = original.tipo_payload;
     payload_size = std::min((unsigned)original.payload_size, payload_max_size);
-    transmission_size = std::min((unsigned)original.transmission_size, message_without_payload_size + payload_max_size);
+    transmission_size = std::min(original.transmission_size, message_without_payload_size + payload_max_size);
 
     if (payload_size > 0) {
         payload = new unsigned char[payload_size];
@@ -47,12 +47,11 @@ Mensaje::Mensaje(const Mensaje& original) {
 }
 
 Mensaje::~Mensaje() {
-    Serial.println("Eliminando Mensaje");
     if (payload_size > 0)
         delete[] payload;
 }
 
-void Mensaje::print() {
+void Mensaje::print() const {
     Serial.print("Emisor: ");
     Serial.println(emisor);
     Serial.print("Receptor: ");
@@ -62,7 +61,29 @@ void Mensaje::print() {
     Serial.print("TTR: ");
     Serial.println(ttr);
     Serial.print("Tipo payload: ");
-    Serial.println(tipo_payload);
+    switch (tipo_payload) {
+    case PAYLOAD_ACK_COMUNICACION:
+        Serial.println("ACK Comunicación");
+        break;
+    case PAYLOAD_ACK_MENSAJE:
+        Serial.println("ACK Mensaje");
+        break;
+    case PAYLOAD_BEACON:
+        Serial.println("Beacon");
+        break;
+    case PAYLOAD_TEXTO:
+        Serial.println("Texto");
+        break;
+    case PAYLOAD_VECTOR:
+        Serial.println("Vector");
+        break;
+    default:
+        Serial.println("Tipo de payload corrupto");
+    }
+    Serial.print("Payload size: ");
+    Serial.println(payload_size);
+    Serial.print("transmission size: ");
+    Serial.println(transmission_size);
 }
 
 /**

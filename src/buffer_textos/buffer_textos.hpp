@@ -61,6 +61,8 @@ public:
     void print();
 
     unsigned get_size_vector_probabilidad();
+
+    void eliminar_textos_sobre_threshold();
 };
 
 #endif

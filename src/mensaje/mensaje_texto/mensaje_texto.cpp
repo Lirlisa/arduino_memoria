@@ -20,35 +20,36 @@ Mensaje_texto::Mensaje_texto(
     int _cantidad_textos = 0;
     int pos_size_contenido = Texto::size_variables_transmission - 1;
     do {
-        if (_payload[pos_size_contenido] == 0) break;
+        if (_payload[pos_size_contenido] <= 0 || _payload[pos_size_contenido] > Texto::max_largo_contenido_comprimido) break; // está corrupto y no se puede saber que sigue con certeza
         _cantidad_textos++;
         pos_size_contenido += _payload[pos_size_contenido] + Texto::size_variables_transmission;
     } while (pos_size_contenido < payload_size);
-    cantidad_textos = _cantidad_textos;
-    textos = new Texto[cantidad_textos];
+
     int pos_inicio_texto = 0;
-    for (uint8_t i = 0; i < cantidad_textos; i++) {
+    for (uint8_t i = 0; i < _cantidad_textos; i++) {
         int largo_texto_comprimido = std::min((unsigned)_payload[pos_inicio_texto + Texto::size_variables_transmission - 1], Texto::max_largo_contenido_comprimido);
         if (largo_texto_comprimido >= 0) {
-            textos[i].valido = true;
-            textos[i].contenido_comprimido = new char[largo_texto_comprimido];
-            memcpy(&(textos[i].nonce), _payload + pos_inicio_texto, 2);
-            memcpy(&(textos[i].creador), _payload + pos_inicio_texto + 2, 2);
-            memcpy(&(textos[i].destinatario), _payload + pos_inicio_texto + 4, 2);
-            textos[i].saltos = _payload[pos_inicio_texto + 6]; // 1 byte
-            textos[i].largo_texto_comprimido = largo_texto_comprimido;
-            memcpy(textos[i].contenido_comprimido, _payload + pos_inicio_texto + Texto::size_variables_transmission, textos[i].largo_texto_comprimido);
+            Texto txt;
+            txt.valido = true;
+            txt.contenido_comprimido = new char[largo_texto_comprimido];
+            memcpy(&(txt.nonce), _payload + pos_inicio_texto, 2);
+            memcpy(&(txt.creador), _payload + pos_inicio_texto + 2, 2);
+            memcpy(&(txt.destinatario), _payload + pos_inicio_texto + 4, 2);
+            txt.saltos = _payload[pos_inicio_texto + 6]; // 1 byte
+            txt.largo_texto_comprimido = largo_texto_comprimido;
+            memcpy(txt.contenido_comprimido, _payload + pos_inicio_texto + Texto::size_variables_transmission, txt.largo_texto_comprimido);
 
             //descompresión
-            char descomprimido[3 * textos[i].largo_texto_comprimido];
+            char descomprimido[3 * txt.largo_texto_comprimido];
             unsigned largo_descomprimido = unishox2_decompress_simple(
-                textos[i].contenido_comprimido,
-                textos[i].largo_texto_comprimido,
+                txt.contenido_comprimido,
+                txt.largo_texto_comprimido,
                 descomprimido
             );
-            textos[i].contenido = new char[largo_descomprimido];
-            std::memcpy(textos[i].contenido, descomprimido, largo_descomprimido);
-            textos[i].largo_texto = largo_descomprimido;
+            txt.contenido = new char[largo_descomprimido];
+            std::memcpy(txt.contenido, descomprimido, largo_descomprimido);
+            txt.largo_texto = largo_descomprimido;
+            textos.push_back(txt);
         }
         pos_inicio_texto += Texto::size_variables_transmission + (largo_texto_comprimido > 0 ? largo_texto_comprimido : 0);
     }
@@ -56,64 +57,69 @@ Mensaje_texto::Mensaje_texto(
 
 
 Mensaje_texto::Mensaje_texto(Mensaje const& origen) : Mensaje(origen) {
-    cantidad_textos = 0;
+    unsigned _cantidad_textos = 0;
     int pos_size_contenido = Texto::size_variables_transmission - 1;
     do {
-        if (payload[pos_size_contenido] == 0) break;
-        cantidad_textos++;
+        if (payload[pos_size_contenido] <= 0 || payload[pos_size_contenido] > Texto::max_largo_contenido_comprimido) break; // está corrupto y no se puede saber que sigue con certeza
+        _cantidad_textos++;
         pos_size_contenido += payload[pos_size_contenido] + Texto::size_variables_transmission;
     } while (pos_size_contenido < payload_size);
 
-    textos = new Texto[cantidad_textos];
 
     int pos_inicio_texto = 0;
-    for (uint8_t i = 0; i < cantidad_textos; i++) {
-        memcpy(&(textos[i].nonce), payload + pos_inicio_texto, 2);
-        memcpy(&(textos[i].creador), payload + pos_inicio_texto + 2, 2);
-        memcpy(&(textos[i].destinatario), payload + pos_inicio_texto + 4, 2);
-        memcpy(&(textos[i].saltos), payload + pos_inicio_texto + 6, 1);
-        memcpy(&(textos[i].largo_texto), payload + pos_inicio_texto + 7, 1);
-        textos[i].contenido = new char[textos[i].largo_texto];
-        memcpy(textos[i].contenido, payload + pos_inicio_texto + Texto::size_variables_transmission, textos[i].largo_texto);
-        pos_inicio_texto += Texto::size_variables_transmission + textos[i].largo_texto;
+    for (uint8_t i = 0; i < _cantidad_textos; i++) {
+        int largo_texto_comprimido = std::min((unsigned)payload[pos_inicio_texto + Texto::size_variables_transmission - 1], Texto::max_largo_contenido_comprimido);
+        if (largo_texto_comprimido > 0) {
+            Texto txt;
+            txt.valido = true;
+            memcpy(&(txt.nonce), payload + pos_inicio_texto, 2);
+            memcpy(&(txt.creador), payload + pos_inicio_texto + 2, 2);
+            memcpy(&(txt.destinatario), payload + pos_inicio_texto + 4, 2);
+            memcpy(&(txt.saltos), payload + pos_inicio_texto + 6, 1);
+            memcpy(&(txt.largo_texto_comprimido), payload + pos_inicio_texto + 7, 1);
+            txt.contenido_comprimido = new char[txt.largo_texto_comprimido];
+
+            //descompresión
+            char descomprimido[3 * txt.largo_texto_comprimido];
+            unsigned largo_descomprimido = unishox2_decompress_simple(
+                txt.contenido_comprimido,
+                txt.largo_texto_comprimido,
+                descomprimido
+            );
+            txt.contenido = new char[largo_descomprimido];
+            std::memcpy(txt.contenido, descomprimido, largo_descomprimido);
+            txt.largo_texto = largo_descomprimido;
+            textos.push_back(txt);
+        }
+        pos_inicio_texto += Texto::size_variables_transmission + (largo_texto_comprimido > 0 ? largo_texto_comprimido : 0);
     }
 }
 
 Mensaje_texto::Mensaje_texto(const Mensaje_texto& origen) : Mensaje(
     origen.ttr, origen.emisor, origen.receptor, origen.nonce, Mensaje_texto::PAYLOAD_TEXTO, origen.payload, origen.payload_size
 ) {
-    Serial.println("Copiando Mensaje_texto");
-    cantidad_textos = origen.cantidad_textos;
-    if (cantidad_textos <= 0) return;
+    if (origen.get_cantidad_textos() <= 0) return;
 
-    textos = new Texto[cantidad_textos];
-    for (unsigned i = 0; i < cantidad_textos; i++) {
-        uint8_t _largo_texto = std::min((unsigned)origen.textos[i].largo_texto, Texto::max_largo_contenido_comprimido);
-        textos[i].nonce = origen.textos[i].nonce;
-        textos[i].creador = origen.textos[i].creador;
-        textos[i].destinatario = origen.textos[i].destinatario;
-        textos[i].saltos = origen.textos[i].saltos;
-        textos[i].largo_texto = _largo_texto;
-        textos[i].contenido = new char[_largo_texto];
-        std::memcpy(textos[i].contenido, origen.textos[i].contenido, _largo_texto);
+    for (unsigned i = 0; i < origen.get_cantidad_textos(); i++) {
+        textos.push_back(
+            Texto(
+                origen.textos[i].nonce, origen.textos[i].creador, origen.textos[i].destinatario,
+                origen.textos[i].saltos, origen.textos[i].largo_texto, origen.textos[i].contenido
+            )
+        );
     }
 }
 
 Mensaje_texto::~Mensaje_texto() {
-    Serial.println("Eliminando mensaje texto");
-    if (cantidad_textos > 0)
-        delete[] textos;
-    textos = nullptr;
 }
 
 void Mensaje_texto::print() {
     Mensaje::print();
-
     Serial.println("Textos:");
-    for (uint8_t i = 0; i < cantidad_textos; i++) {
+    for (unsigned i = 0; i < textos.size(); i++) {
         Serial.print("\tTexto ");
         Serial.println(i);
-        textos[i].print();
+        textos.at(i).print();
     }
 }
 
@@ -122,24 +128,21 @@ void Mensaje_texto::print() {
 */
 std::vector<Mensaje_texto> Mensaje_texto::crear_mensajes(
     uint32_t _ttr, uint16_t _emisor, uint16_t _receptor,
-    uint16_t _nonce, std::vector<Texto>& textos
+    uint16_t _nonce, std::vector<Texto>& _textos
 ) {
     std::vector<Mensaje_texto> mensajes_texto;
-    int textos_restantes = textos.size();
+    int textos_restantes = _textos.size();
     int bytes_restantes;
-    std::vector<Texto>::iterator curr_texto = textos.begin();
+    std::vector<Texto>::iterator curr_texto = _textos.begin();
     std::vector<Texto>::iterator ultimo_texto_a_enviar;
     unsigned contador;
     while (textos_restantes > 0) {
         bytes_restantes = payload_max_size;
-        for (std::vector<Texto>::iterator texto = curr_texto; texto != textos.end(); texto++) {
+        for (std::vector<Texto>::iterator texto = curr_texto; texto != _textos.end(); texto++) {
             if (bytes_restantes - texto->transmission_size() < 0 || textos_restantes <= 0) break;
             bytes_restantes -= texto->transmission_size();
             textos_restantes--;
             ultimo_texto_a_enviar = texto;
-            Serial.println("----- Texto solo en crear_mensajes -----");
-            texto->print();
-            Serial.println("----- Fin Texto solo en crear_mensajes -----");
         }
         contador = 0;
 
@@ -157,23 +160,16 @@ std::vector<Mensaje_texto> Mensaje_texto::crear_mensajes(
             _nonce, _payload,
             payload_max_size - bytes_restantes
         );
-        Serial.println("----- Mensaje solo en crear_mensajes -----");
-        msg.print();
-        Serial.println("----- Fin Mensaje solo en crear_mensajes -----");
-        Serial.println("----- Mensaje en vector en crear_mensajes -----");
-        mensajes_texto.insert(mensajes_texto.end(), msg);
-        mensajes_texto[0].print();
-        Serial.println("----- Fin Mensaje en vector en crear_mensajes -----");
+        mensajes_texto.push_back(msg);
         curr_texto = ultimo_texto_a_enviar + 1;
     }
     return mensajes_texto;
 }
 
 std::vector<Texto> Mensaje_texto::obtener_textos() {
-    std::vector<Texto> _textos(textos, textos + cantidad_textos);
-    return _textos;
+    return textos;
 }
 
-uint8_t Mensaje_texto::get_cantidad_textos() {
-    return cantidad_textos;
+uint8_t Mensaje_texto::get_cantidad_textos() const {
+    return textos.size();
 }

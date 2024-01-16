@@ -11,8 +11,7 @@
 
 class Mensaje_texto : public Mensaje {
 private:
-    Texto* textos;
-    uint8_t cantidad_textos;
+    std::vector<Texto> textos;
 public:
     Mensaje_texto(
         uint32_t _ttr, uint16_t _emisor, uint16_t _receptor,
@@ -24,18 +23,16 @@ public:
     Mensaje_texto();
     ~Mensaje_texto();
 
-
-
     static std::vector<Mensaje_texto> crear_mensajes(
         uint32_t _ttr, uint16_t _emisor, uint16_t _receptor,
-        uint16_t _nonce, std::vector<Texto>& textos
+        uint16_t _nonce, std::vector<Texto>& _textos
     );
 
     void print();
 
     std::vector<Texto> obtener_textos();
 
-    uint8_t get_cantidad_textos();
+    uint8_t get_cantidad_textos() const;
 };
 
 #endif
