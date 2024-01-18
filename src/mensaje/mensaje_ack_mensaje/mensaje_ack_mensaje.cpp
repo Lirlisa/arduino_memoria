@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstring>
+#include <Arduino.h>
 
 /*
 Inicializa un mensaje_ack_mensaje. En caso de que la cantidad de hashes supere el máximo de bytes, sólo los primeros serán guardados.
@@ -46,6 +47,9 @@ Mensaje_ack_mensaje::Mensaje_ack_mensaje(const Mensaje_ack_mensaje& origen) : Me
 Mensaje_ack_mensaje::Mensaje_ack_mensaje(Mensaje const& origen) : Mensaje(origen) {
     ttr = 0;
     tipo_payload = Mensaje::PAYLOAD_ACK_MENSAJE;
+}
+
+Mensaje_ack_mensaje::~Mensaje_ack_mensaje() {
 }
 
 /*

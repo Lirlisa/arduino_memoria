@@ -30,4 +30,6 @@ public:
     void obtener_vector_probabilidad(unsigned char* destino);
     float costo(uint16_t destino);
     unsigned get_size_vector_probabilidad();
+
+    void print();
 };

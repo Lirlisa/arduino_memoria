@@ -27,18 +27,23 @@ void setup() {
         Serial.println("Starting LoRa failed!");
         while (1);
     }
+    LoRa.setSpreadingFactor(8);
     LoRa.setSignalBandwidth(500E3);
     LoRa.enableCrc();
-    router = new Router(1, ttr, 10);
-    char textin[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789{}[]?.,;:-_+*~'\"|°!#$%&/()=ABCDEFG";
-    Texto texto(0, 1, 2, 0, 98, textin);
-    router->agregar_texto(texto);
+
+    unsigned id = 1;
+    router = new Router(id, ttr, 10);
+    if (id == 1) {
+        char textin[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789{}[]?.,;:-_+*~'\"|°!#$%&/()=ABCDEFG";
+        Texto texto(0, 1, 2, 0, 98, textin);
+        router->agregar_texto(texto);
+    }
 }
 
 void loop() {
     if (millis() - ultima_actualizacion_ttr >= intervalo_actualizacion_ttr) {
         aux_tiempo = millis();
-        // router.update_ttr((uint32_t)(aux_tiempo - ultima_actualizacion_ttr) / 1000);
+        router->update_ttr((uint32_t)(aux_tiempo - ultima_actualizacion_ttr) / 1000);
         ultima_actualizacion_ttr = aux_tiempo;
     }
     // agregar modo sleep o idle e intentar recibir mensajes todo el rato
@@ -56,18 +61,20 @@ void loop() {
                 router->iniciar_comunicacion(router->mensaje_pendiente.getEmisor());
             else
                 router->recibir_comunicacion(router->mensaje_pendiente.getEmisor());
+
+            router->print_buffer();
+            router->print_mapa();
         }
         else if (tipo_payload == Mensaje::PAYLOAD_ACK_COMUNICACION) {
             Mensaje_ack_comunicacion ack_com(router->mensaje_pendiente);
-            Serial.println("Parametros de confirmar_ack en main.cpp");
-            Serial.println(router->get_beacon_nonce());
-            Serial.println(router->get_id());
-            Serial.println(router->BROADCAST_CHANNEL_ID);
             if (ack_com.confirmar_ack(router->get_beacon_nonce(), router->get_id(), router->BROADCAST_CHANNEL_ID)) {
                 if (router->get_id() > router->mensaje_pendiente.getEmisor())
                     router->iniciar_comunicacion(router->mensaje_pendiente.getEmisor());
                 else
                     router->recibir_comunicacion(router->mensaje_pendiente.getEmisor());
+
+                router->print_buffer();
+                router->print_mapa();
             }
         }
         if (freeMemory() <= MEMORIA_MINIMA) {
@@ -75,9 +82,4 @@ void loop() {
         }
 
     }
-
-    // if (millis() - tiempo_ultima_transmision >= Router::tiempo_max_espera) {
-    //     tiempo_ultima_transmision = millis();
-    //     if (!router.recibir_mensaje()) return;
-    // }
 }

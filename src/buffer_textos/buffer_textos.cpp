@@ -8,8 +8,6 @@ Buffer_textos::Buffer_textos(uint16_t _id) : mapa(_id) {
     id = _id;
 }
 
-Buffer_textos::Buffer_textos() {}
-
 Buffer_textos::~Buffer_textos() {
 }
 
@@ -221,6 +219,7 @@ void Buffer_textos::print() {
         texto->print();
         Serial.println("--------");
     }
+    Serial.println("--------");
     for (texto = arreglo_textos_mas_de_threshold_saltos.begin(); texto != arreglo_textos_mas_de_threshold_saltos.end(); texto++) {
         texto->print();
         Serial.println("--------");
@@ -233,4 +232,8 @@ unsigned Buffer_textos::get_size_vector_probabilidad() {
 
 void Buffer_textos::eliminar_textos_sobre_threshold() {
     arreglo_textos_mas_de_threshold_saltos.clear();
+}
+
+void Buffer_textos::print_mapa() {
+    mapa.print();
 }

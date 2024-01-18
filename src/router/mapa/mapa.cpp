@@ -10,12 +10,11 @@
 #include <Arduino.h>
 
 
-Mapa::Mapa(uint16_t _id) {
+Mapa::Mapa(uint16_t _id) : grafo{ {_id, {}} } {
+    Serial.print("Id en mapa: ");
+    Serial.println(_id);
     id = _id;
-    grafo[id] = {};
 }
-
-Mapa::Mapa() {}
 
 Mapa::~Mapa() {
 }
@@ -122,4 +121,23 @@ void Mapa::add_node(uint16_t nodo, float peso, std::vector<par_costo_id> vecinos
 
 unsigned Mapa::get_size_vector_probabilidad() {
     return 2 + grafo[id].size() * 6;
+}
+
+void Mapa::print() {
+    Serial.println("----- Mapa -----");
+    for (
+        std::unordered_map<uint16_t, std::unordered_map<uint16_t, float>>::const_iterator nodoA = grafo.begin();
+        nodoA != grafo.end();
+        nodoA++
+        ) {
+        for (std::unordered_map<uint16_t, float>::const_iterator nodoB = nodoA->second.begin(); nodoB != nodoA->second.end();nodoB++) {
+            Serial.print("Nodo ");
+            Serial.print(nodoA->first);
+            Serial.print(" -> Nodo ");
+            Serial.print(nodoB->first);
+            Serial.print(": ");
+            Serial.println(nodoB->second);
+        }
+    }
+    Serial.println("----- Fin Mapa -----");
 }

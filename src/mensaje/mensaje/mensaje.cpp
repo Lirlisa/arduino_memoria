@@ -89,7 +89,7 @@ void Mensaje::print() const {
 /**
 @brief Crea mensaje para transmitir a partir del mensaje. El destino debe tener al menos 'transmission_size' bytes disponibles.
 */
-void Mensaje::parse_to_transmission(unsigned char* destino) {
+void Mensaje::parse_to_transmission(unsigned char* destino) const {
     std::memcpy(destino, &emisor, 2); // 0, 1
     std::memcpy(destino + 2, &receptor, 2); // 2, 3
     std::memcpy(destino + 4, &nonce, 2); // 4, 5
@@ -138,29 +138,29 @@ void Mensaje::setNonce(uint16_t _nonce) {
     nonce = _nonce;
 }
 
-uint16_t Mensaje::getNonce() {
-    return nonce;
-}
-
-uint16_t Mensaje::getEmisor() {
-    return emisor;
-}
-uint16_t Mensaje::getReceptor() {
-    return receptor;
-}
-
-uint8_t Mensaje::getTipoPayload() {
-    return tipo_payload;
-}
-
 void Mensaje::setTTR(uint32_t _ttr) {
     ttr = _ttr;
 }
 
-uint32_t Mensaje::getTTR() {
+uint16_t Mensaje::getNonce() const {
+    return nonce;
+}
+
+uint16_t Mensaje::getEmisor() const {
+    return emisor;
+}
+uint16_t Mensaje::getReceptor() const {
+    return receptor;
+}
+
+uint8_t Mensaje::getTipoPayload() const {
+    return tipo_payload;
+}
+
+uint32_t Mensaje::getTTR() const {
     return ttr;
 }
 
-unsigned Mensaje::get_transmission_size() {
+unsigned Mensaje::get_transmission_size() const {
     return transmission_size;
 }

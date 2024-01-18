@@ -22,6 +22,8 @@ public:
     Mensaje_ack_mensaje(const Mensaje_ack_mensaje& origen);
     Mensaje_ack_mensaje(Mensaje const& origen);
 
+    ~Mensaje_ack_mensaje();
+
 
     static std::vector<Mensaje_ack_mensaje> crear_mensajes(
         uint16_t _emisor, uint16_t _receptor,

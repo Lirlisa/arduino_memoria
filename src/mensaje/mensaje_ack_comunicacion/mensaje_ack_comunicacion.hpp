@@ -14,6 +14,7 @@ public:
     Mensaje_ack_comunicacion(uint16_t _emisor, uint16_t _receptor, uint16_t _nonce, uint16_t nonce_msj_original);
     Mensaje_ack_comunicacion(const Mensaje_ack_comunicacion& original);
     Mensaje_ack_comunicacion(Mensaje const& origen);
+    ~Mensaje_ack_comunicacion();
 
     bool confirmar_ack(uint16_t nonce_original, uint16_t emisor_original, uint16_t receptor_original);
     void print();

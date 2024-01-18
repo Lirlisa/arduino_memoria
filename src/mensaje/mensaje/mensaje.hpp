@@ -29,9 +29,9 @@ public:
         unsigned char* _payload, unsigned payload_size
     );
     Mensaje(const Mensaje& original);
-    ~Mensaje();
+    virtual ~Mensaje();
 
-    void parse_to_transmission(unsigned char* destino);
+    void parse_to_transmission(unsigned char* destino) const;
 
     void print() const;
 
@@ -41,14 +41,14 @@ public:
     void setNonce(uint16_t _nonce);
     void setTTR(uint32_t _ttr);
 
-    uint16_t getEmisor();
-    uint16_t getReceptor();
-    uint16_t getNonce();
-    uint8_t getTipoPayload();
-    uint32_t getTTR();
+    uint16_t getEmisor() const;
+    uint16_t getReceptor() const;
+    uint16_t getNonce() const;
+    uint8_t getTipoPayload() const;
+    uint32_t getTTR() const;
 
     static Mensaje* parse_from_transmission(const unsigned char* data, uint8_t largo_data);
-    unsigned get_transmission_size();
+    unsigned get_transmission_size() const;
 };
 
 #endif

@@ -11,9 +11,10 @@
 #include <algorithm>
 #include <limits>
 #include <vector>
+#include <cmath>
 
 
-Router::Router(uint16_t _id, uint32_t _ttr, unsigned int initial_capacity) : buffer(id) {
+Router::Router(uint16_t _id, uint32_t _ttr, unsigned int initial_capacity) : buffer(_id) {
     id = _id;
     ttr = _ttr;
     nonce_actual = 0;
@@ -79,7 +80,6 @@ bool Router::agregar_a_acks(Texto& texto) {
 }
 
 bool Router::enviar_mensaje_texto_maxprop(uint16_t receptor, unsigned periodos_espera) {
-    if (!se_puede_transmitir_LoRa(periodos_espera)) return false;
     if (!buffer.hay_mensajes_bajo_threshold()) return true;
 
     std::vector<Texto> textos = buffer.obtener_textos_bajo_threshold();
@@ -88,8 +88,12 @@ bool Router::enviar_mensaje_texto_maxprop(uint16_t receptor, unsigned periodos_e
     for (std::vector<Mensaje_texto>::iterator mensaje = mensajes.begin(); mensaje != mensajes.end(); mensaje++) {
         nonce = get_update_nonce();
         mensaje->setNonce(nonce);
-        enviar_mensaje_texto(*mensaje);
-        if (!esperar_ack(receptor, nonce)) return false;
+
+        Serial.println("----- Enviando mensaje texto maxprop -----");
+        mensaje->print();
+        Serial.println("----- Enviando mensaje texto maxprop -----");
+
+        if (!enviar_mensaje(*mensaje, periodos_espera)) return false;
     }
     return true;
 }
@@ -99,7 +103,6 @@ bool Router::enviar_mensaje_texto_maxprop(uint16_t receptor, unsigned periodos_e
 y que tengan una probabilidad de entrega mayor a la que este propio nodo tiene. Luego se eliminan.
 */
 bool Router::enviar_mensaje_texto_ttr(uint16_t receptor, unsigned periodos_espera) {
-    if (!se_puede_transmitir_LoRa(periodos_espera)) return false;
     if (!buffer.hay_mensajes_sobre_threshold()) return true;
 
     std::vector<Texto> textos = buffer.obtener_textos_sobre_threshold();
@@ -112,8 +115,13 @@ bool Router::enviar_mensaje_texto_ttr(uint16_t receptor, unsigned periodos_esper
         mensaje = mensajes[i];
         nonce = get_update_nonce();
         mensaje.setNonce(nonce);
-        enviar_mensaje_texto(mensaje);
-        if (!esperar_ack(receptor, nonce)) return false;
+
+        Serial.println("----- Enviando mensaje texto ttr -----");
+        mensaje.print();
+        Serial.println("----- Enviando mensaje texto ttr -----");
+
+        if (!enviar_mensaje(mensaje, periodos_espera)) return false;
+
         cantidad_textos_enviados = mensaje.get_cantidad_textos();
         std::vector<Texto> v(
             textos.begin() + cantidad_total_textos_enviados,
@@ -123,28 +131,6 @@ bool Router::enviar_mensaje_texto_ttr(uint16_t receptor, unsigned periodos_esper
         cantidad_total_textos_enviados += cantidad_textos_enviados;
     }
     return true;
-}
-
-bool Router::enviar_mensaje_texto(Mensaje_texto& msg, unsigned periodos_espera) {
-    if (!se_puede_transmitir_LoRa(periodos_espera)) return false;
-
-    unsigned char mensaje_a_enviar[msg.get_transmission_size()];
-    msg.parse_to_transmission(mensaje_a_enviar);
-    LoRa.beginPacket();
-    LoRa.write(mensaje_a_enviar, msg.get_transmission_size());
-    LoRa.endPacket(); // true = async / non-blocking mode
-    Serial.println("----- Enviando Mensaje texto -----");
-    msg.print();
-    Serial.println("----- Fin Mensaje texto -----");
-    return true;
-}
-
-bool Router::se_puede_transmitir_LoRa(unsigned periodos_espera) {
-    unsigned long tiempo_inicio = millis();
-    while (true) {
-        if (LoRa.beginPacket() != 0) return true;
-        if (millis() - tiempo_inicio > periodos_espera * tiempo_transmision) return false;
-    }
 }
 
 bool Router::hay_paquete_LoRa(unsigned periodos_espera) {
@@ -204,57 +190,35 @@ uint16_t Router::get_update_nonce() {
 }
 
 bool Router::emitir_beacon_signal() {
-    if (!se_puede_transmitir_LoRa()) return false;
-
     beacon_signal.setNonce(get_update_nonce());
     beacon_signal.setTTR(ttr);
-    unsigned char mensaje_a_enviar[beacon_signal.get_transmission_size()];
-    beacon_signal.parse_to_transmission(mensaje_a_enviar);
+    unsigned transmission_size = beacon_signal.get_transmission_size();
+    unsigned char data[transmission_size];
+    beacon_signal.parse_to_transmission(data);
 
-    LoRa.beginPacket();
-    LoRa.write(mensaje_a_enviar, beacon_signal.get_transmission_size());
-    LoRa.endPacket(); // true = async / non-blocking mode
-
-    return true;
+    if (LoRa.beginPacket()) {
+        LoRa.write(data, transmission_size);
+        LoRa.endPacket(); // true = async / non-blocking mode
+        return true;
+    }
+    return false;
 }
 
 bool Router::emitir_ack_comunicacion(uint16_t receptor, uint16_t nonce_original) {
-    if (!se_puede_transmitir_LoRa()) return false;
     Mensaje_ack_comunicacion mensaje = Mensaje_ack_comunicacion(
         id, receptor, get_update_nonce(), nonce_original
     );
     Serial.println("----- Emitiendo ack comunicación -----");
     mensaje.print();
     Serial.println("----- Emitido ack comunicación -----");
+
     unsigned char mensaje_a_enviar[mensaje.get_transmission_size()];
     mensaje.parse_to_transmission(mensaje_a_enviar);
-    LoRa.beginPacket();
-    LoRa.write(mensaje_a_enviar, mensaje.get_transmission_size());
-    LoRa.endPacket(); // true = async / non-blocking mode
-    return true;
-}
 
-bool  Router::esperar_ack(uint16_t id_nodo, uint16_t nonce, unsigned periodos_espera) {
-    unsigned long tiempo_inicio = millis();
-    while (millis() - tiempo_inicio <= periodos_espera * tiempo_transmision) {
-        if (recibir_mensaje()) {
-            if (mensaje_pendiente.getTipoPayload() == Mensaje::PAYLOAD_ACK_COMUNICACION) {
-                Serial.println("----- ACK en esperar_ack -----");
-                Mensaje_ack_comunicacion(mensaje_pendiente).print();
-                Serial.println("----- fin ACK en esperar_ack -----");
-            }
-            Serial.println("Parametros de confirmar_ack en router.cpp");
-            Serial.println(nonce);
-            Serial.println(id);
-            Serial.println(id_nodo);
-            if (
-                id_nodo == mensaje_pendiente.getEmisor() &&
-                mensaje_pendiente.getTipoPayload() == Mensaje::PAYLOAD_ACK_COMUNICACION &&
-                Mensaje_ack_comunicacion(mensaje_pendiente).confirmar_ack(nonce, id, id_nodo)
-                ) {
-                return true;
-            }
-        }
+    if (LoRa.beginPacket()) {
+        LoRa.write(mensaje_a_enviar, mensaje.get_transmission_size());
+        LoRa.endPacket(); // true = async / non-blocking mode
+        return true;
     }
     return false;
 }
@@ -274,15 +238,20 @@ bool Router::enviar_todos_a_destinatario(uint16_t destinatario) {
     for (mensaje = mensajes_a_enviar.begin(); mensaje != mensajes_a_enviar.end(); mensaje++) {
         nonce = get_update_nonce();
         mensaje->setNonce(nonce);
-        if (!enviar_mensaje_texto(*mensaje)) return false;
-        if (!esperar_ack(destinatario, nonce)) return false;
+
+        Serial.println("----- Enviando mensaje todos a destinatario -----");
+        mensaje->print();
+        Serial.println("----- Fin Enviando mensaje todos a destinatario -----");
+        if (!enviar_mensaje(*mensaje)) return false;
 
         textos_enviados += mensaje->get_cantidad_textos();
         std::vector<Texto> textos_a_borrar(
             textos_para_destinatario.begin() + textos_enviados - mensaje->get_cantidad_textos(),
             textos_para_destinatario.begin() + textos_enviados + 1
         );
+        Serial.println("flag enviar_todos_a_destinatario 1");
         buffer.agregar_ack(textos_a_borrar);
+        Serial.println("flag enviar_todos_a_destinatario 2");
     }
     return true;
 }
@@ -309,23 +278,18 @@ bool Router::enviar_vectores_de_probabilidad(uint16_t receptor) {
             );
             cantidad_pares_enviados++;
         }
-        if (!se_puede_transmitir_LoRa()) return false;
         uint16_t nonce = get_update_nonce();
         Mensaje_vector mensaje = Mensaje_vector(
             id, receptor, nonce, data_a_enviar, 1 + cantidad_bytes
         );
-        unsigned char mensaje_a_enviar[mensaje.get_transmission_size()];
-        mensaje.parse_to_transmission(mensaje_a_enviar);
         Serial.println("----- Enviando vector -----");
         mensaje.print();
         Serial.println("----- Enviado vector -----");
 
-        LoRa.beginPacket();
-        LoRa.write(mensaje_a_enviar, mensaje.get_transmission_size());
-        LoRa.endPacket(); // true = async / non-blocking mode
+        if (!enviar_mensaje(mensaje)) return false;
+
         cantidad_pares_restantes -= cantidad_pares_a_enviar;
         cantidad_pares_enviados_totales += cantidad_pares_enviados;
-        if (!esperar_ack(receptor, nonce)) return false;
     }
     return true;
 }
@@ -338,15 +302,8 @@ bool Router::enviar_acks_mensajes(uint16_t receptor) {
     for (std::vector<Mensaje_ack_mensaje>::iterator mensaje = mensajes.begin(); mensaje != mensajes.end(); mensaje++) {
         nonce = get_update_nonce();
         mensaje->setNonce(nonce);
-        unsigned char mensaje_a_enviar[mensaje->get_transmission_size()];
-        mensaje->parse_to_transmission(mensaje_a_enviar);
 
-        if (!se_puede_transmitir_LoRa()) return false;
-        LoRa.beginPacket();
-        LoRa.write(mensaje_a_enviar, mensaje->get_transmission_size());
-        LoRa.endPacket(); // true = async / non-blocking mode
-
-        if (!esperar_ack(receptor, nonce)) return false;
+        if (!enviar_mensaje(*mensaje))return false;
     }
 
     return true;
@@ -357,7 +314,7 @@ bool Router::enviar_acks_mensajes(uint16_t receptor) {
 sepa que puede enviar mensajes.
 */
 void Router::iniciar_comunicacion(uint16_t receptor) {
-    Serial.println("----- Paso 1 iniciar_comunicacion -----");
+    Serial.println("----- Paso 0 iniciar_comunicacion -----");
     buffer.actualizar_propias_probabilidades(receptor);
 
     int contador = 5;
@@ -383,10 +340,9 @@ void Router::iniciar_comunicacion(uint16_t receptor) {
         return;
     }
 
-
     uint32_t receptor_ttr = mensaje_pendiente.getTTR(), ttr_inicio = ttr; // para no comparar valores pasados con futuros
 
-
+    Serial.println("----- Paso 1 iniciar_comunicacion -----");
     //esperamos los vectores de maxprop
     do {
         if (mensaje_pendiente.getTipoPayload() == Mensaje::PAYLOAD_VECTOR) {
@@ -401,7 +357,6 @@ void Router::iniciar_comunicacion(uint16_t receptor) {
             return;
         };
     } while (mensaje_pendiente.getTipoPayload() != Mensaje::PAYLOAD_ACK_COMUNICACION);
-    Serial.println("----- Paso 2 iniciar_comunicacion -----");
     // enviamos nuestros vectores
     if (!enviar_vectores_de_probabilidad(receptor)) {
         Serial.println("Termino porque no se pudieron enviar los vectores");
@@ -409,7 +364,7 @@ void Router::iniciar_comunicacion(uint16_t receptor) {
     };
     emitir_ack_comunicacion(receptor, mensaje_pendiente.getNonce());
 
-    Serial.println("----- Paso 3 iniciar_comunicacion -----");
+    Serial.println("----- Paso 2 iniciar_comunicacion -----");
     //recibimos los ack de mensajes
     do {
         if (!recibir_mensaje()) {
@@ -423,7 +378,6 @@ void Router::iniciar_comunicacion(uint16_t receptor) {
             emitir_ack_comunicacion(receptor, mensaje_pendiente.getNonce());
         }
     } while (mensaje_pendiente.getTipoPayload() != Mensaje::PAYLOAD_ACK_COMUNICACION);
-    Serial.println("----- Paso 4 iniciar_comunicacion -----");
     //enviamos acks de mensajes
     if (!enviar_acks_mensajes(receptor)) {
         Serial.println("Termino porque no se pudieron enviar los ack de mensajes");
@@ -431,7 +385,7 @@ void Router::iniciar_comunicacion(uint16_t receptor) {
     }
     emitir_ack_comunicacion(receptor, mensaje_pendiente.getNonce());
 
-    Serial.println("----- Paso 5 iniciar_comunicacion -----");
+    Serial.println("----- Paso 3 iniciar_comunicacion -----");
     //recibo mensajes de texto para mi
     do {
         if (!recibir_mensaje()) {
@@ -446,7 +400,6 @@ void Router::iniciar_comunicacion(uint16_t receptor) {
             emitir_ack_comunicacion(receptor, mensaje_pendiente.getNonce());
         }
     } while (mensaje_pendiente.getTipoPayload() != Mensaje::PAYLOAD_ACK_COMUNICACION);
-    Serial.println("----- Paso 6 iniciar_comunicacion -----");
     // enviamos mensajes de texto para el receptor
     if (!enviar_todos_a_destinatario(receptor)) {
         Serial.println("Termino porque no se pudieron enviar todos los mensajes para el destinatario");
@@ -454,7 +407,7 @@ void Router::iniciar_comunicacion(uint16_t receptor) {
     }
     emitir_ack_comunicacion(receptor, mensaje_pendiente.getNonce());
 
-    Serial.println("----- Paso 7 iniciar_comunicacion -----");
+    Serial.println("----- Paso 4 iniciar_comunicacion -----");
     // recibo textos en modo maxprop
     do {
         if (!recibir_mensaje()) {
@@ -468,7 +421,6 @@ void Router::iniciar_comunicacion(uint16_t receptor) {
             emitir_ack_comunicacion(receptor, mensaje_pendiente.getNonce());
         }
     } while (mensaje_pendiente.getTipoPayload() != Mensaje::PAYLOAD_ACK_COMUNICACION);
-    Serial.println("----- Paso 8 iniciar_comunicacion -----");
     //enviamos textos en modo maxprop
     if (!enviar_mensaje_texto_maxprop(receptor)) {
         Serial.println("Termino porque no se pudieron enviar los mensajes en maxprop");
@@ -476,7 +428,7 @@ void Router::iniciar_comunicacion(uint16_t receptor) {
     };
     emitir_ack_comunicacion(receptor, mensaje_pendiente.getNonce());
 
-    Serial.println("----- Paso 9 iniciar_comunicacion -----");
+    Serial.println("----- Paso 5 iniciar_comunicacion -----");
     //recibo textos en modo ttr
     do {
         if (!recibir_mensaje()) return;
@@ -488,7 +440,6 @@ void Router::iniciar_comunicacion(uint16_t receptor) {
         }
     } while (mensaje_pendiente.getTipoPayload() != Mensaje::PAYLOAD_ACK_COMUNICACION);
     //enviar textos en modo ttr
-    Serial.println("----- Paso 10 iniciar_comunicacion -----");
     if (receptor_ttr < ttr_inicio) {
         if (!enviar_mensaje_texto_ttr(receptor)) return;
     }
@@ -523,6 +474,7 @@ void Router::recibir_comunicacion(uint16_t receptor) {
             emitir_ack_comunicacion(receptor, mensaje_pendiente.getNonce());
         }
     } while (mensaje_pendiente.getTipoPayload() != Mensaje::PAYLOAD_ACK_COMUNICACION);
+
     Serial.println("----- Paso 2 recibir_comunicacion -----");
     //enviamos acks de mensajes
     if (!enviar_acks_mensajes(receptor)) {
@@ -530,10 +482,12 @@ void Router::recibir_comunicacion(uint16_t receptor) {
         return;
     };
     emitir_ack_comunicacion(receptor, mensaje_pendiente.getNonce());
-    Serial.println("----- Paso 3 recibir_comunicacion -----");
     //recibimos los ack de mensajes
     do {
-        if (!recibir_mensaje()) return;
+        if (!recibir_mensaje()) {
+            Serial.println("Termino porque no se recibió ningún mensaje 2");
+            return;
+        }
         if (mensaje_pendiente.getTipoPayload() == Mensaje::PAYLOAD_ACK_MENSAJE) {
             Mensaje_ack_mensaje msg(mensaje_pendiente);
             std::vector<uint64_t> acks = msg.obtener_acks();
@@ -541,14 +495,20 @@ void Router::recibir_comunicacion(uint16_t receptor) {
             emitir_ack_comunicacion(receptor, mensaje_pendiente.getNonce());
         }
     } while (mensaje_pendiente.getTipoPayload() != Mensaje::PAYLOAD_ACK_COMUNICACION);
-    Serial.println("----- Paso 4 recibir_comunicacion -----");
+
+    Serial.println("----- Paso 3 recibir_comunicacion -----");
     // enviamos mensajes de texto para el receptor
-    if (!enviar_todos_a_destinatario(receptor)) return;
+    if (!enviar_todos_a_destinatario(receptor)) {
+        Serial.println("Termino porque no se pudieron enviar todos a destinatario");
+        return;
+    }
     emitir_ack_comunicacion(receptor, mensaje_pendiente.getNonce());
-    Serial.println("----- Paso 5 recibir_comunicacion -----");
     //recibo mensajes de texto para mi
     do {
-        if (!recibir_mensaje()) return;
+        if (!recibir_mensaje()) {
+            Serial.println("Termino porque no se recibió ningún mensaje 3");
+            return;
+        }
         if (mensaje_pendiente.getTipoPayload() == Mensaje::PAYLOAD_TEXTO) {
             Mensaje_texto msg(mensaje_pendiente);
             std::vector<Texto> textos = msg.obtener_textos();
@@ -557,14 +517,20 @@ void Router::recibir_comunicacion(uint16_t receptor) {
             emitir_ack_comunicacion(receptor, mensaje_pendiente.getNonce());
         }
     } while (mensaje_pendiente.getTipoPayload() != Mensaje::PAYLOAD_ACK_COMUNICACION);
-    Serial.println("----- Paso 6 recibir_comunicacion -----");
+
+    Serial.println("----- Paso 4 recibir_comunicacion -----");
     //enviamos textos en modo maxprop
-    if (!enviar_mensaje_texto_maxprop(receptor)) return;
+    if (!enviar_mensaje_texto_maxprop(receptor)) {
+        Serial.println("Termino porque no se pudieron enviar mensajes maxprop");
+        return;
+    }
     emitir_ack_comunicacion(receptor, mensaje_pendiente.getNonce());
-    Serial.println("----- Paso 7 recibir_comunicacion -----");
     // recibo textos en modo maxprop
     do {
-        if (!recibir_mensaje()) return;
+        if (!recibir_mensaje()) {
+            Serial.println("Termino porque no se recibió ningún mensaje 4");
+            return;
+        }
         if (mensaje_pendiente.getTipoPayload() == Mensaje::PAYLOAD_TEXTO) {
             Mensaje_texto msg(mensaje_pendiente);
             std::vector<Texto> textos = msg.obtener_textos();
@@ -572,15 +538,22 @@ void Router::recibir_comunicacion(uint16_t receptor) {
             emitir_ack_comunicacion(receptor, mensaje_pendiente.getNonce());
         }
     } while (mensaje_pendiente.getTipoPayload() != Mensaje::PAYLOAD_ACK_COMUNICACION);
-    Serial.println("----- Paso 8 recibir_comunicacion -----");
+
+    Serial.println("----- Paso 5 recibir_comunicacion -----");
+    //enviamos textos en modo ttr
     if (receptor_ttr < ttr_inicio) {
-        if (!enviar_mensaje_texto_ttr(receptor)) return;
+        if (!enviar_mensaje_texto_ttr(receptor)) {
+            Serial.println("Termino porque no se pudieron enviar mensajes ttr");
+            return;
+        }
     }
     emitir_ack_comunicacion(receptor, mensaje_pendiente.getNonce());
-    Serial.println("----- Paso 9 recibir_comunicacion -----");
     //recibo textos en modo ttr
     do {
-        if (!recibir_mensaje()) return;
+        if (!recibir_mensaje()) {
+            Serial.println("Termino porque no se recibió ningún mensaje 5");
+            return;
+        }
         if (mensaje_pendiente.getTipoPayload() == Mensaje::PAYLOAD_TEXTO) {
             Mensaje_texto msg(mensaje_pendiente);
             std::vector<Texto> textos = msg.obtener_textos();
@@ -590,7 +563,7 @@ void Router::recibir_comunicacion(uint16_t receptor) {
     } while (mensaje_pendiente.getTipoPayload() != Mensaje::PAYLOAD_ACK_COMUNICACION);
 }
 
-uint16_t Router::get_nonce_beacon_signal() {
+uint16_t Router::get_nonce_beacon_signal() const {
     return beacon_signal.getNonce();
 }
 
@@ -613,6 +586,10 @@ void Router::print_buffer() {
     buffer.print();
 }
 
+void Router::print_mapa() {
+    buffer.print_mapa();
+}
+
 uint64_t Router::obtener_hash_mensaje(uint16_t nonce, uint16_t emisor, uint16_t receptor) {
     uint64_t data = 0;
     data |= ((uint64_t)nonce) << 48;
@@ -631,7 +608,7 @@ void Router::agregar_a_ya_visto(Mensaje& mensaje) {
         ya_vistos.insert(obtener_hash_mensaje(mensaje.getNonce(), mensaje.getEmisor(), mensaje.getReceptor()));
 }
 
-unsigned Router::get_cantidad_ya_vistos() {
+unsigned Router::get_cantidad_ya_vistos() const {
     return ya_vistos.size();
 }
 
@@ -653,10 +630,50 @@ void Router::liberar_memoria() {
     buffer.eliminar_textos_sobre_threshold();
 }
 
-uint16_t Router::get_beacon_nonce() {
+uint16_t Router::get_beacon_nonce() const {
     return beacon_signal.getNonce();
 }
 
-uint16_t Router::get_id() {
+uint16_t Router::get_id() const {
     return id;
+}
+
+/*
+@brief Envia cualquier tipo de mensaje utilizando Aloha. La máxima cantidad de intentos es 8 por temas de implementación.
+@return true si se recibió un ack desde la contraparte, false en caso contrario.
+*/
+bool Router::enviar_mensaje(const Mensaje& mensaje, unsigned intentos) {
+    unsigned long tiempo_inicio;
+    unsigned ciclos_a_esperar, tiempo_max_espera = 1, transmission_size = mensaje.get_transmission_size();
+
+    unsigned char data[transmission_size];
+    mensaje.parse_to_transmission(data);
+
+    for (unsigned i = 0; i < intentos; i++) {
+        if (LoRa.beginPacket()) {
+            LoRa.write(data, transmission_size);
+            LoRa.endPacket(); // true = async / non-blocking mode
+            ciclos_a_esperar = 2; // esperamos a 2 viajes del mensaje
+        }
+        else {
+            ciclos_a_esperar = 0;
+        }
+        tiempo_max_espera <<= 2;
+        ciclos_a_esperar += ((unsigned)LoRa.random()) % (tiempo_max_espera);
+        tiempo_inicio = millis();
+        while (millis() - tiempo_inicio <= ciclos_a_esperar * tiempo_transmision) {
+            if (!recibir_mensaje(1)) continue;
+            if (mensaje_pendiente.getTipoPayload() == Mensaje::PAYLOAD_ACK_COMUNICACION) {
+                bool confirmacion = Mensaje_ack_comunicacion(mensaje_pendiente).confirmar_ack(
+                    mensaje.getNonce(),
+                    mensaje.getEmisor(),
+                    mensaje.getReceptor()
+                );
+                Serial.print("Confirmacion: ");
+                Serial.println(confirmacion ? "true" : "false");
+                if (confirmacion) return true;
+            }
+        }
+    }
+    return false;
 }

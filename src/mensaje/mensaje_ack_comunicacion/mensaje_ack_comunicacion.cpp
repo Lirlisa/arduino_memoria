@@ -32,6 +32,9 @@ Mensaje_ack_comunicacion::Mensaje_ack_comunicacion(Mensaje const& origen) : Mens
     tipo_payload = Mensaje::PAYLOAD_ACK_COMUNICACION;
 }
 
+Mensaje_ack_comunicacion::~Mensaje_ack_comunicacion() {
+}
+
 bool Mensaje_ack_comunicacion::confirmar_ack(uint16_t nonce_original, uint16_t emisor_original, uint16_t receptor_original) {
     uint16_t aux_emisor, aux_receptor;
     memcpy(&aux_emisor, payload + 2, 2);
