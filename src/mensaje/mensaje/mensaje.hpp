@@ -9,17 +9,18 @@ protected:
     uint16_t emisor, receptor, nonce;
     uint8_t tipo_payload, payload_size;
     unsigned char* payload;
-    const static unsigned message_without_payload_size = 9;
     unsigned transmission_size;
+    const static unsigned message_without_payload_size = 9;
     const static uint16_t BROADCAST_CHANNEL_ID = 0xffff;
 public:
-    const static uint8_t TTR_MODE = 0;
-    const static uint8_t MAXPROP_MODE = 1;
     const static uint8_t PAYLOAD_TEXTO = 0;
     const static uint8_t PAYLOAD_VECTOR = 1;
     const static uint8_t PAYLOAD_ACK_MENSAJE = 2;
     const static uint8_t PAYLOAD_ACK_COMUNICACION = 3;
     const static uint8_t PAYLOAD_BEACON = 4;
+    const static uint8_t PAYLOAD_TEXTO_VISTO = 5;
+    const static uint8_t PAYLOAD_BEACON_CENTRAL = 6;
+
     const static unsigned payload_max_size = 191;
     const static unsigned raw_message_max_size = 200;
 
@@ -29,12 +30,17 @@ public:
         unsigned char* _payload, unsigned payload_size
     );
     Mensaje(const Mensaje& original);
+    Mensaje(const unsigned char* data, uint8_t largo_data);
     virtual ~Mensaje();
+
+    Mensaje& operator=(const Mensaje& other);
+    bool operator!=(const Mensaje& other) const;
+    bool operator==(const Mensaje& other) const;
 
     void parse_to_transmission(unsigned char* destino) const;
 
-    void print() const;
-
+    void peek(unsigned cant_bytes = 6) const;
+    void print(unsigned cant_bytes = 6) const;
 
     void setEmisor(uint16_t _emisor);
     void setReceptor(uint16_t _receptor);
@@ -47,7 +53,6 @@ public:
     uint8_t getTipoPayload() const;
     uint32_t getTTR() const;
 
-    static Mensaje* parse_from_transmission(const unsigned char* data, uint8_t largo_data);
     unsigned get_transmission_size() const;
 };
 

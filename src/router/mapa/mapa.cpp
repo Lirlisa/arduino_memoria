@@ -10,21 +10,22 @@
 #include <Arduino.h>
 
 
-Mapa::Mapa(uint16_t _id) : grafo{ {_id, {}} } {
+Mapa::Mapa(uint16_t _id) {
     Serial.print("Id en mapa: ");
     Serial.println(_id);
     id = _id;
+    grafo.insert({ id, {} });
 }
 
-Mapa::~Mapa() {
-}
+Mapa::~Mapa() { }
 
 void Mapa::dijkstra() {
     std::priority_queue<par_costo_id, std::vector<par_costo_id>, std::greater<par_costo_id>> pq;
-    tabla_distancias_desde_inicio = std::unordered_map<uint16_t, float>(grafo.size());
+    tabla_distancias_desde_inicio.clear();
+    tabla_distancias_desde_inicio.reserve(grafo.size());
 
     pq.push(std::make_pair(0, id));
-    tabla_distancias_desde_inicio[id] = 0;
+    tabla_distancias_desde_inicio.insert({ id, 0 });
 
     while (!pq.empty()) {
         uint16_t u = pq.top().second;
@@ -43,6 +44,8 @@ void Mapa::dijkstra() {
                 tabla_distancias_desde_inicio[u];
 
             if (dist_v > dist_u + weight) {
+                if (tabla_distancias_desde_inicio.find(v) == tabla_distancias_desde_inicio.end())
+                    tabla_distancias_desde_inicio.insert({ v, 0 });
                 tabla_distancias_desde_inicio[v] = dist_u + weight;
                 pq.push(std::make_pair(tabla_distancias_desde_inicio[v], v));
             }
@@ -50,15 +53,18 @@ void Mapa::dijkstra() {
     }
 }
 
-void Mapa::actualizar_probabilidades(uint16_t origen, std::vector<par_costo_id>& pares) {
-    for (std::vector<par_costo_id>::iterator par = pares.begin(); par != pares.end(); par++) {
-        grafo[origen][par->second] = par->first;
-    }
+void Mapa::actualizar_probabilidades(uint16_t origen, const std::vector<par_costo_id>& pares) {
+    if (grafo.find(origen) == grafo.end())
+        grafo.insert({ origen, {} });
+    for (std::vector<par_costo_id>::const_iterator par = pares.begin(); par != pares.end(); par++)
+        grafo[origen].insert({ par->second, par->first });
+
+    dijkstra();
 }
 
 void Mapa::actualizar_propias_probabilidades(uint16_t nodo_visto) {
     if (grafo[id].find(nodo_visto) == grafo[id].end())
-        grafo[id][nodo_visto] = 0;
+        grafo[id].insert({ nodo_visto, 0 });
     grafo[id][nodo_visto] += 1;
 
     float suma = 0;
@@ -67,12 +73,14 @@ void Mapa::actualizar_propias_probabilidades(uint16_t nodo_visto) {
 
     for (auto& v : grafo[id])
         grafo[id][v.first] /= suma;
+
+    dijkstra();
 }
 
 void Mapa::actualizar_propias_probabilidades(uint16_t* nodos_vistos, uint16_t cant_nodos) {
     for (uint16_t i = 0; i < cant_nodos; i++) {
         if (grafo[id].find(nodos_vistos[i]) == grafo[id].end()) {
-            grafo[id][nodos_vistos[i]] = 0;
+            grafo[id].insert({ nodos_vistos[i], 0 });
         }
         grafo[id][nodos_vistos[i]] += 1;
     }
@@ -83,20 +91,25 @@ void Mapa::actualizar_propias_probabilidades(uint16_t* nodos_vistos, uint16_t ca
 
     for (auto& v : grafo[id])
         grafo[id][v.first] /= suma;
+
+    dijkstra();
 }
 
 /*
-Entrega el vector de probabilidades del nodo. El destino debe tener al menos 'get_size_vector_probabilidad()' bytres disponibles.
+@brief Entrega todos los pares de costo e id de los nodos vecinos para el nodo base.
 */
-void Mapa::obtener_vector_probabilidad(unsigned char* destino) {
-    uint16_t _size = grafo[id].size();
-    memcpy(destino, &_size, 2);
-    uint16_t i = 0;
-    for (auto& v : grafo[id]) {
-        memcpy(destino + 2 + i * 6, &(v.first), 2);
-        memcpy(destino + 2 + i * 6 + 2, &(v.second), 4);
-        i++;
+std::vector<par_costo_id> Mapa::obtener_vector_probabilidad() const {
+    std::vector<par_costo_id> pares;
+    pares.reserve(grafo.find(id)->second.size());
+    for (
+        std::unordered_map<uint16_t, float>::const_iterator vecino = grafo.find(id)->second.begin();
+        vecino != grafo.find(id)->second.end();
+        ++vecino
+        ) {
+        pares.push_back(std::make_pair(vecino->second, vecino->first));
     }
+
+    return pares;
 }
 
 float Mapa::costo(uint16_t destino) {
@@ -105,25 +118,11 @@ float Mapa::costo(uint16_t destino) {
         tabla_distancias_desde_inicio[destino];
 }
 
-void Mapa::add_node(uint16_t nodo, float peso, std::vector<par_costo_id> vecinos) {
-    if (grafo.find(nodo) == grafo.end())
-        grafo[nodo] = {};
-
-    for (std::vector<par_costo_id>::iterator vecino = vecinos.begin(); vecino != vecinos.end(); vecino++) {
-        if (grafo.find(vecino->second) == grafo.end())
-            grafo[vecino->second] = {};
-
-        grafo[nodo][vecino->second] = vecino->first;
-    }
-
-    dijkstra();
+unsigned Mapa::get_size_vector_probabilidad() const {
+    return 2 + grafo.find(id)->second.size() * 6;
 }
 
-unsigned Mapa::get_size_vector_probabilidad() {
-    return 2 + grafo[id].size() * 6;
-}
-
-void Mapa::print() {
+void Mapa::print() const {
     Serial.println("----- Mapa -----");
     for (
         std::unordered_map<uint16_t, std::unordered_map<uint16_t, float>>::const_iterator nodoA = grafo.begin();

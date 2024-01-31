@@ -11,25 +11,28 @@ struct Texto {
     uint8_t saltos = 0, largo_texto_comprimido = 0;
     unsigned largo_texto = 0;
 
-    const static unsigned max_largo_contenido_comprimido = 183;
-    const static unsigned size_variables_transmission = 8; // tamaño de las variables al transmitir (sin contenido)
-    const static unsigned max_size_transmision = max_largo_contenido_comprimido + size_variables_transmission;
-
     char* contenido, * contenido_comprimido;
     bool valido = false;
+
+    const static unsigned max_largo_contenido_comprimido = 183;
+    // tamaño de las variables al transmitir (sin contenido)
+    const static unsigned size_variables_transmission = 8;
+    const static unsigned max_size_transmision = max_largo_contenido_comprimido + size_variables_transmission;
 
     Texto();
     Texto(
         uint16_t _nonce, uint16_t _creador, uint16_t _destinatario,
         uint8_t _saltos, int _largo_texto,
-        char* _contenido
+        char* _contenido, bool comprimido = false
     );
     Texto(const Texto& other);
     ~Texto();
 
-    void parse_to_transmission(unsigned char* destino);
+    Texto& operator=(const Texto& other);
+
+    void parse_to_transmission(unsigned char* destino) const;
     uint64_t hash() const;
-    uint8_t transmission_size();
+    uint8_t transmission_size() const;
 
     void print() const;
 

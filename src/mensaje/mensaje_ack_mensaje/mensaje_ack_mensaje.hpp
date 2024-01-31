@@ -13,10 +13,6 @@ private:
 public:
     Mensaje_ack_mensaje(
         uint16_t _emisor, uint16_t _receptor, uint16_t _nonce,
-        ACK* lista_hashes, unsigned int cantidad_hashes
-    );
-    Mensaje_ack_mensaje(
-        uint16_t _emisor, uint16_t _receptor, uint16_t _nonce,
         unsigned char* _payload, int _payload_size
     );
     Mensaje_ack_mensaje(const Mensaje_ack_mensaje& origen);

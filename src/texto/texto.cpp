@@ -1,52 +1,82 @@
 #include "texto.hpp"
+#include <Arduino.h>
 
 Texto::Texto() { }
 
 Texto::Texto(
     uint16_t _nonce, uint16_t _creador, uint16_t _destinatario,
     uint8_t _saltos, int _largo_texto,
-    char* _contenido
+    char* _contenido, bool comprimido
 ) {
-    if (_largo_texto <= 0) return;
-
-    largo_texto = _largo_texto;
+    Serial.println("Flag Texto constructor 1");
+    if (_largo_texto < 1) return;
+    Serial.println("Flag Texto constructor 2");
     nonce = _nonce;
     creador = _creador;
     destinatario = _destinatario;
     saltos = _saltos;
-
-    contenido = new char[largo_texto];
-    std::memcpy(contenido, _contenido, largo_texto);
-
-    //compresión
-    char temp_comprimido[2 * largo_texto];
-    int _largo_texto_comprimido = unishox2_compress_simple(contenido, largo_texto, temp_comprimido);
-
-    if (_largo_texto_comprimido > (int)max_largo_contenido_comprimido) {
-        char textito[largo_texto + 1];
-        std::memcpy(textito, contenido, largo_texto);
-        textito[largo_texto] = '\0';
-        Serial.println("intentando comprimir: ");
-        Serial.println(textito);
-        Serial.println("Texto comprimido es demasiado largo");
-        Serial.print("_largo_texto_comprimido = ");
-        Serial.println(_largo_texto_comprimido);
-        Serial.print("(int)max_largo_contenido_comprimido = ");
-        Serial.println((int)max_largo_contenido_comprimido);
-        Serial.print("max_largo_contenido_comprimido = ");
-        Serial.println(max_largo_contenido_comprimido);
-        delete[] contenido;
-        largo_texto_comprimido = largo_texto = 0;
-        return;
+    Serial.println("Flag Texto constructor 3");
+    if (comprimido) { //si el contenido viene o no comprimido
+        Serial.println("Flag Texto constructor 4");
+        if (_largo_texto > (int)max_largo_contenido_comprimido) {
+            Serial.println("Flag Texto constructor 5");
+            largo_texto_comprimido = largo_texto = 0;
+            contenido = nullptr;
+            contenido_comprimido = nullptr;
+            Serial.println("Flag Texto constructor 6");
+            return;
+        }
+        Serial.println("Flag Texto constructor 7");
+        largo_texto_comprimido = _largo_texto;
+        Serial.println("Flag Texto constructor 8");
+        contenido_comprimido = new char[largo_texto_comprimido];
+        Serial.println("Flag Texto constructor 9");
+        std::memcpy(contenido_comprimido, _contenido, largo_texto_comprimido);
+        Serial.println("Flag Texto constructor 10");
+        valido = true;
+        Serial.println("Flag Texto constructor 11");
+        //descompresión
+        char temp_descomprimido[3 * largo_texto_comprimido];
+        Serial.println("Flag Texto constructor 12");
+        largo_texto = unishox2_decompress_simple(_contenido, largo_texto_comprimido, temp_descomprimido);
+        Serial.println("Flag Texto constructor 13");
+        contenido = new char[largo_texto];
+        std::memcpy(contenido, temp_descomprimido, largo_texto);
+        Serial.println("Flag Texto constructor 14");
     }
-    valido = true;
-    largo_texto_comprimido = _largo_texto_comprimido;
-    contenido_comprimido = new char[largo_texto_comprimido];
-    std::memcpy(contenido_comprimido, temp_comprimido, largo_texto_comprimido);
+    else {
+        //compresión
+        Serial.println("Flag Texto constructor 15");
+        largo_texto = _largo_texto;
+        char temp_comprimido[2 * largo_texto];
+        Serial.println("Flag Texto constructor 16");
+        int _largo_texto_comprimido = unishox2_compress_simple(_contenido, largo_texto, temp_comprimido);
+        Serial.println("Flag Texto constructor 17");
+        if (_largo_texto_comprimido > (int)max_largo_contenido_comprimido) {
+            Serial.println("Flag Texto constructor 18");
+            largo_texto_comprimido = largo_texto = 0;
+            contenido = nullptr;
+            contenido_comprimido = nullptr;
+            Serial.println("Flag Texto constructor 19");
+            return;
+        }
+        Serial.println("Flag Texto constructor 20");
+        contenido = new char[largo_texto];
+        Serial.println("Flag Texto constructor 21");
+        std::memcpy(contenido, _contenido, largo_texto);
+        Serial.println("Flag Texto constructor 22");
+        valido = true;
+        largo_texto_comprimido = _largo_texto_comprimido;
+        Serial.println("Flag Texto constructor 23");
+        contenido_comprimido = new char[largo_texto_comprimido];
+        Serial.println("Flag Texto constructor 24");
+        std::memcpy(contenido_comprimido, temp_comprimido, largo_texto_comprimido);
+        Serial.println("Flag Texto constructor 25");
+    }
+    Serial.println("Flag Texto constructor 26");
 }
 
 Texto::Texto(const Texto& other) {
-    Serial.println("Copiando Texto");
     if (!other.valido) return;
 
     valido = true;
@@ -76,10 +106,35 @@ Texto::~Texto() {
     largo_texto_comprimido = 0;
 }
 
+Texto& Texto::operator=(const Texto& other) {
+    nonce = other.nonce;
+    creador = other.creador;
+    destinatario = other.destinatario;
+    saltos = other.saltos;
+    valido = other.valido;
+
+    if (this != &other) {
+        if (largo_texto > 0) delete[] contenido;
+        if (other.largo_texto > 0) {
+            largo_texto = other.largo_texto;
+            contenido = new char[largo_texto];
+            memcpy(contenido, other.contenido, largo_texto);
+        }
+
+        if (largo_texto_comprimido > 0) delete[] contenido_comprimido;
+        if (other.largo_texto_comprimido > 0) {
+            largo_texto_comprimido = other.largo_texto_comprimido;
+            contenido_comprimido = new char[largo_texto_comprimido];
+            memcpy(contenido_comprimido, other.contenido_comprimido, largo_texto_comprimido);
+        }
+    }
+    return *this;
+}
+
 /*
 @brief convierte los datos en un arreglo de bytes listos para transmitir. Destino debe tener al menos 'size_variables_transmission' + 'largo_texto_comprimido' bytes disponibles.
 */
-void Texto::parse_to_transmission(unsigned char* destino) {
+void Texto::parse_to_transmission(unsigned char* destino) const {
     std::memcpy(destino, &nonce, 2);
     std::memcpy(destino + 2, &creador, 2);
     std::memcpy(destino + 4, &destinatario, 2);
@@ -99,7 +154,7 @@ uint64_t Texto::hash() const {
     return data;
 }
 
-uint8_t Texto::transmission_size() {
+uint8_t Texto::transmission_size() const {
     return size_variables_transmission + largo_texto_comprimido;
 }
 

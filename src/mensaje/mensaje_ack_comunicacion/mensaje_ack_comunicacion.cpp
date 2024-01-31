@@ -35,7 +35,7 @@ Mensaje_ack_comunicacion::Mensaje_ack_comunicacion(Mensaje const& origen) : Mens
 Mensaje_ack_comunicacion::~Mensaje_ack_comunicacion() {
 }
 
-bool Mensaje_ack_comunicacion::confirmar_ack(uint16_t nonce_original, uint16_t emisor_original, uint16_t receptor_original) {
+bool Mensaje_ack_comunicacion::confirmar_ack(uint16_t nonce_original, uint16_t emisor_original, uint16_t receptor_original) const {
     uint16_t aux_emisor, aux_receptor;
     memcpy(&aux_emisor, payload + 2, 2);
     memcpy(&aux_receptor, payload + 4, 2);

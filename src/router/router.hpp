@@ -3,37 +3,35 @@
 
 #include <mensaje/mensaje/mensaje.hpp>
 #include <mensaje/mensaje_texto/mensaje_texto.hpp>
+#include <mensaje/mensaje_ack_comunicacion/mensaje_ack_comunicacion.hpp>
 #include <texto/texto.hpp>
 #include <mensaje/ack.hpp>
 #include <buffer_textos/buffer_textos.hpp>
 #include <cstdint>
 #include <unordered_map>
+#include <vector>
 
 
 class Router {
 private:
     Buffer_textos buffer;
-    Texto* mis_mensajes;
-    std::vector<Texto> en_espera_ack;
+    std::vector<Texto> mis_mensajes;
     Mensaje beacon_signal;
-    long int conexiones_totales = 0;
-    long long int total_bytes_transferidos = 0;
 
     uint16_t id;
-    unsigned int mensajes_enviados;
     uint16_t nonce_actual;
 
-    unsigned int capacidad_mis_mensajes;
-    unsigned int size_mis_mensajes;
     uint32_t ttr;
     std::unordered_set<uint64_t> ya_vistos;
+    unsigned static const max_size_ultimos_nonce_beacon = 3;
+    unsigned size_ultimos_nonce_beacon = 0;
+    unsigned cabeza_ultimos_nonce_beacon = max_size_ultimos_nonce_beacon - 1;
+    uint16_t* ultimos_nonce_beacon;
 
     uint16_t get_update_nonce();
-    bool agregar_a_mis_mensajes(Texto& texto);
-    bool agregar_a_mis_mensajes(std::vector<Texto>& textos);
-    bool realocar_mis_mensajes(unsigned n = 0);
-    bool hay_espacio_en_mis_mensajes(unsigned n = 1);
-    bool agregar_a_acks(Texto& texto);
+    bool agregar_a_mis_mensajes(const Texto& texto);
+    bool agregar_a_mis_mensajes(const std::vector<Texto>& textos);
+    bool agregar_a_acks(const Texto& texto);
     bool hay_paquete_LoRa(unsigned periodos_espera = 3);
     uint64_t obtener_hash_mensaje(uint16_t nonce, uint16_t emisor, uint16_t receptor);
     bool mensaje_ya_visto(Mensaje& mensaje);
@@ -49,11 +47,11 @@ public:
     Mensaje mensaje_pendiente;
     bool hay_mensaje_pendiente = false;
 
-    bool enviar_mensaje_texto_maxprop(uint16_t receptor, unsigned periodos_espera = 3);
-    bool enviar_mensaje_texto_ttr(uint16_t receptor, unsigned periodos_espera = 3);
-    bool recibir_mensaje(unsigned periodos_espera = 3);
+    bool enviar_mensaje_texto_maxprop(uint16_t receptor, unsigned periodos_espera = 3, std::vector<uint64_t>* excepciones = nullptr);
+    bool enviar_mensaje_texto_ttr(uint16_t receptor, unsigned periodos_espera = 3, std::vector<uint64_t>* excepciones = nullptr);
+    bool recibir_mensaje(unsigned periodos_espera = 3, int tipo_mensaje = -1, int emisor_esperado = -1);
     bool emitir_beacon_signal();
-    bool emitir_ack_comunicacion(uint16_t receptor, uint16_t nonce_original);
+    bool emitir_ack_comunicacion(uint16_t receptor, uint16_t nonce_original, uint16_t* nonce_usado = nullptr);
     bool enviar_todos_a_destinatario(uint16_t destinatario);
     bool enviar_vectores_de_probabilidad(uint16_t receptor);
     bool enviar_acks_mensajes(uint16_t receptor);
@@ -65,11 +63,11 @@ public:
 
     void set_ttr(uint32_t _ttr);
     void update_ttr(uint32_t segundos_transcurridos);
-    void print_buffer();
-    void print_mapa();
+    void print_buffer() const;
+    void print_mapa() const;
+    void print_mis_mensajes() const;
 
     uint64_t obtener_hash_texto(const Texto& texto);
-    void eliminar_de_ya_vistos(const std::vector<Texto>& textos);
     void liberar_memoria();
 
     unsigned get_cantidad_ya_vistos() const;
@@ -78,6 +76,10 @@ public:
     uint16_t get_id() const;
 
     bool enviar_mensaje(const Mensaje& mensaje, unsigned intentos = 3);
+    bool confirmar_con_ultimos_beacons(const Mensaje_ack_comunicacion& ack_com) const;
+    bool emitir_ack_comunicacion_hasta_respuesta(uint16_t receptor, uint16_t nonce_original, uint8_t tipo_payload, unsigned intentos = 3);
+
+    bool enviar_textos_ya_vistos(uint16_t receptor, unsigned periodos_espera = 3);
 };
 
 
